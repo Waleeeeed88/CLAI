@@ -38,10 +38,10 @@ python shell.py
 
 | Role | Model | What They Do |
 |------|-------|--------------|
-| **@senior** | Claude Sonnet | Architecture, complex problems, tech decisions |
-| **@dev** | GPT-4o | Fast implementation, features, utilities |
-| **@qa** | GPT-4o | Bug hunting, test cases, edge cases |
-| **@ba** | Gemini 2.0 | Requirements, user stories, specs |
+| **@senior** | Claude opus 4.5 | Architecture, complex problems, tech decisions |
+| **@dev** | sonnet 4.5, gemini-3-pro | Fast implementation, features, utilities |
+| **@qa** | GPT-5.2-high | Bug hunting, test cases, edge cases |
+| **@ba** | Gemini 3 pro | Requirements, user stories, specs |
 | **@reviewer** | Claude Sonnet | Quick code reviews, style feedback |
 
 ---
