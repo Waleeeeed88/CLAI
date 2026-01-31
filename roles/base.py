@@ -71,5 +71,5 @@ def get_role_config(role) -> RoleConfig:
 def list_roles() -> Dict[str, RoleConfig]:
     """Get all registered roles."""
     if not _ROLE_CONFIGS:
-        from . import senior_dev, coder, qa, ba, reviewer
+        from . import senior_dev, coder, coder_2, qa, ba, reviewer
     return _ROLE_CONFIGS.copy()

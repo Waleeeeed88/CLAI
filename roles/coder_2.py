@@ -1,7 +1,7 @@
 """
 Coder 2 Role (Gemini)
 
-Gemini 2.0 Flash - The secondary coder with massive context.
+Gemini 3 Pro - The secondary coder with massive context.
 Handles large codebases, alternative implementations, and context-heavy tasks.
 """
 from .base import RoleConfig, register_role
