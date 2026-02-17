@@ -1,7 +1,7 @@
 """Shell package - interactive CLAI shell."""
 from .main import CLAIShell, main
 from .completer import MentionCompleter
-from .constants import COMMANDS, ROLES, WORKFLOWS, MENTION_ALIASES, TEAM_MENTIONS
+from .constants import COMMANDS, ROLES, WORKFLOWS, STAGES, MENTION_ALIASES, TEAM_MENTIONS
 
 __all__ = [
     "CLAIShell",
@@ -10,6 +10,7 @@ __all__ = [
     "COMMANDS",
     "ROLES",
     "WORKFLOWS",
+    "STAGES",
     "MENTION_ALIASES",
     "TEAM_MENTIONS",
 ]

@@ -9,13 +9,15 @@ from rich import box
 from prompt_toolkit import prompt
 from prompt_toolkit.history import FileHistory
 import re
+import time
 from pathlib import Path
 from typing import Optional
 
-from agents.factory import Role
+from agents.factory import AgentFactory, Role
 from core import Orchestrator, get_filesystem
+from core.pipeline import ProjectPipeline, PhaseResult, PhaseStatus
 from config import get_settings
-from .constants import COMMANDS, ROLES, WORKFLOWS, MENTION_ALIASES, TEAM_MENTIONS
+from .constants import COMMANDS, ROLES, WORKFLOWS, STAGES, MENTION_ALIASES, TEAM_MENTIONS
 from .completer import MentionCompleter
 
 
@@ -47,29 +49,37 @@ class CLAIShell:
     def print_help(self):
         console.print("\n[bold cyan]@Mentions[/bold cyan]")
         console.print("  @senior, @dev, @qa, @ba, @reviewer, @team")
+        console.print("  @team runs BA-first roundtable discussion")
         console.print("\n[bold cyan]Commands[/bold cyan]")
-        console.print("  team, workflows, workflow <name>, config, clear, exit")
+        console.print("  team, workflows, workflow <name>, stages, stage <name>, config, clear, exit")
+        console.print("  tools [role]             # List tools available to agents")
+        console.print("  github                   # GitHub MCP status & tools")
+        console.print("\n[bold cyan]Project Pipeline[/bold cyan]")
+        console.print("  kickoff [name]           # Full project pipeline: plan → setup → build → test → review → deliver")
+        console.print("\n[bold cyan]Stages[/bold cyan]")
+        console.print("  stage planning_discussion   # Active")
+        console.print("  stages                      # List all stages")
         console.print("\n[bold cyan]File I/O[/bold cyan]")
         console.print("  @dev write code > file.py   |   @qa review < code.py")
         console.print()
     
     def print_team(self):
-        settings = get_settings()
         table = Table(title="🤖 AI Team", box=box.ROUNDED)
         table.add_column("Role", style="cyan")
         table.add_column("Model", style="green")
         table.add_column("Provider", style="blue")
         
         team = [
-            ("Senior Dev", settings.senior_dev_model, "Anthropic"),
-            ("Coder", settings.coder_model, "Anthropic"),
-            ("Coder 2", settings.coder_model_2, "Google"),
-            ("QA", settings.qa_model, "Google"),
-            ("BA", settings.ba_model, "OpenAI"),
-            ("Reviewer", settings.reviewer_model, "Anthropic"),
+            ("BA", Role.BA),
+            ("QA", Role.QA),
+            ("Senior Dev", Role.SENIOR_DEV),
+            ("Coder", Role.CODER),
+            ("Coder 2", Role.CODER_2),
+            ("Reviewer", Role.REVIEWER),
         ]
-        for role, model, provider in team:
-            table.add_row(role, model, provider)
+        for role_name, role in team:
+            provider, model = AgentFactory.get_role_runtime_config(role)
+            table.add_row(role_name, model, provider.value)
         console.print()
         console.print(table)
         console.print()
@@ -80,16 +90,54 @@ class CLAIShell:
         table.add_column("Pipeline", style="green")
         
         workflows = [
-            ("feature", "BA → Senior → Coder → QA"),
+            ("feature", "BA → QA → Senior → Coder → Coder2"),
             ("review", "Reviewer → Senior"),
             ("bugfix", "QA → Senior → Coder"),
             ("architecture", "BA → Senior → QA"),
+            ("project_setup", "BA (creates issues) → Senior (architecture)"),
+            ("pr_review", "Reviewer (reviews PR) → QA (test plan)"),
+            ("full_feature", "BA → Senior → Coder → Coder2 → QA → Reviewer"),
+            ("test_and_verify", "QA (test plan) → Coder (write tests) → QA (run tests)"),
         ]
         for name, pipeline in workflows:
             table.add_row(name, pipeline)
         console.print()
         console.print(table)
         console.print()
+
+    def print_stages(self):
+        table = Table(title="🧩 Stages", box=box.ROUNDED)
+        table.add_column("Name", style="cyan")
+        table.add_column("Status", style="green")
+        table.add_column("Description", style="white")
+
+        catalog = self.orchestrator.get_stages()
+        for stage_name in STAGES:
+            if stage_name in catalog:
+                details = catalog[stage_name]
+                table.add_row(
+                    stage_name,
+                    details.get("status", "placeholder"),
+                    details.get("description", ""),
+                )
+
+        for stage_name, details in catalog.items():
+            if stage_name not in STAGES:
+                table.add_row(
+                    stage_name,
+                    details.get("status", "placeholder"),
+                    details.get("description", ""),
+                )
+
+        console.print()
+        console.print(table)
+        console.print()
+
+    def _step_label(self, step_name: str) -> str:
+        parts = step_name.split("_")
+        if len(parts) <= 2:
+            return step_name.upper()
+        return "_".join(parts[2:]).upper()
     
     def _query_agent(self, role: Role, prompt_text: str, save_to: Optional[str] = None):
         with console.status(f"[bold blue]{role.value} thinking...[/bold blue]"):
@@ -110,19 +158,19 @@ class CLAIShell:
                 console.print(f"[red]Error: {e}[/red]")
     
     def _query_team(self, prompt_text: str):
-        console.print("\n[bold blue]🤖 Asking the whole team...[/bold blue]\n")
-        for role in [Role.SENIOR_DEV, Role.CODER, Role.QA, Role.BA]:
-            with console.status(f"[bold blue]{role.value} thinking...[/bold blue]"):
-                try:
-                    response = self.orchestrator.ask(role, prompt_text)
-                    console.print(Panel(
-                        Markdown(response.content),
-                        title=f"[bold green]{role.value.upper()}[/bold green]",
-                        box=box.ROUNDED,
-                    ))
-                    console.print()
-                except Exception as e:
-                    console.print(f"[red]{role.value} error: {e}[/red]")
+        console.print("\n[bold blue]🤖 Team roundtable (BA first)...[/bold blue]\n")
+        try:
+            results = self.orchestrator.consult_team_discussion(prompt_text)
+            for role, response in results.items():
+                console.print(Panel(
+                    Markdown(response.content),
+                    title=f"[bold green]{role.value.upper()}[/bold green]",
+                    subtitle=f"[dim]{response.model} | {response.total_tokens} tokens[/dim]",
+                    box=box.ROUNDED,
+                ))
+                console.print()
+        except Exception as e:
+            console.print(f"[red]Team discussion error: {e}[/red]")
     
     def _save_to_file(self, content: str, filename: str):
         try:
@@ -230,11 +278,47 @@ class CLAIShell:
             if result.status.value == "completed":
                 console.print(f"[green]✓ Done in {result.duration:.2f}s[/green]\n")
                 for step_name, response in result.outputs.items():
-                    role_name = step_name.split("_")[-1].upper()
+                    role_name = self._step_label(step_name)
                     console.print(Panel(Markdown(response.content), title=f"[bold]{role_name}[/bold]", box=box.ROUNDED))
                     console.print()
             else:
                 console.print("[red]✗ Workflow failed[/red]")
+                for error in result.errors:
+                    console.print(f"[red]  {error}[/red]")
+        except Exception as e:
+            console.print(f"[red]Error: {e}[/red]")
+
+    def handle_stage(self, args: list):
+        if not args:
+            console.print("[red]Usage: stage <name>[/red]")
+            self.print_stages()
+            return
+
+        stage_name = args[0]
+        if stage_name not in self.orchestrator.list_stages():
+            console.print(f"[red]Unknown stage: {stage_name}[/red]")
+            self.print_stages()
+            return
+
+        context = {}
+        if stage_name == "planning_discussion":
+            topic = Prompt.ask("[cyan]What should the team plan/discuss?[/cyan]")
+            if not topic.strip():
+                console.print("[red]A topic is required for planning_discussion[/red]")
+                return
+            context["requirement"] = topic
+
+        console.print(f"\n[bold blue]🧩 Running stage: {stage_name}...[/bold blue]\n")
+        try:
+            result = self.orchestrator.run_stage(stage_name, context)
+            if result.status.value == "completed":
+                console.print(f"[green]✓ Done in {result.duration:.2f}s[/green]\n")
+                for step_name, response in result.outputs.items():
+                    role_name = self._step_label(step_name)
+                    console.print(Panel(Markdown(response.content), title=f"[bold]{role_name}[/bold]", box=box.ROUNDED))
+                    console.print()
+            else:
+                console.print("[red]✗ Stage failed[/red]")
                 for error in result.errors:
                     console.print(f"[red]  {error}[/red]")
         except Exception as e:
@@ -252,6 +336,32 @@ class CLAIShell:
             console.print()
             console.print(table)
             console.print()
+
+            routing = Table(title="🧭 Effective Routing", box=box.ROUNDED)
+            routing.add_column("Role", style="cyan")
+            routing.add_column("Model", style="green")
+            routing.add_column("Provider", style="blue")
+            for role_name, role in [
+                ("BA", Role.BA),
+                ("QA", Role.QA),
+                ("Senior Dev", Role.SENIOR_DEV),
+                ("Coder", Role.CODER),
+                ("Coder 2", Role.CODER_2),
+                ("Reviewer", Role.REVIEWER),
+            ]:
+                provider, model = AgentFactory.get_role_runtime_config(role)
+                routing.add_row(role_name, model, provider.value)
+            console.print(routing)
+            console.print()
+
+            if settings.role_model_overrides or settings.role_provider_overrides:
+                overrides = Table(title="⚙ Overrides", box=box.ROUNDED)
+                overrides.add_column("Type", style="cyan")
+                overrides.add_column("Value", style="white")
+                overrides.add_row("role_model_overrides", str(settings.role_model_overrides))
+                overrides.add_row("role_provider_overrides", str(settings.role_provider_overrides))
+                console.print(overrides)
+                console.print()
         except Exception as e:
             console.print(f"[red]Config error: {e}[/red]")
     
@@ -316,7 +426,221 @@ class CLAIShell:
             console.print()
         else:
             console.print(f"[red]✗ {result.message}[/red]")
-    
+
+    def handle_github(self, args: list):
+        """Show GitHub MCP integration status and available tools."""
+        settings = get_settings()
+        console.print()
+        if not settings.github_mcp_enabled:
+            console.print("[yellow]GitHub MCP is disabled.[/yellow]")
+            console.print("  Set GITHUB_MCP_ENABLED=true and GITHUB_TOKEN in .env to enable.")
+            console.print()
+            return
+        if not settings.github_token:
+            console.print("[red]✗ GITHUB_TOKEN not set in .env[/red]")
+            console.print()
+            return
+
+        # Connection status — trigger lazy init
+        client = getattr(self.orchestrator, "_github_client", None)
+        connected = client is not None and getattr(client, "_connected", False)
+        if not connected and hasattr(self.orchestrator, "github_available"):
+            # Attempt lazy connection with spinner
+            with console.status("[bold blue]Connecting to GitHub MCP server...[/bold blue]"):
+                try:
+                    connected = self.orchestrator.github_available
+                except Exception as e:
+                    console.print(f"  [red]✗ Connection failed: {e}[/red]")
+                    console.print()
+                    return
+            client = getattr(self.orchestrator, "_github_client", None)
+        connected = client is not None and getattr(client, "_session", None) is not None
+        status = "[green]Connected[/green]" if connected else "[red]Not connected[/red]"
+        console.print(f"  GitHub MCP Status: {status}")
+        console.print(f"  Command: {settings.github_mcp_command} {settings.github_mcp_args}")
+
+        if connected:
+            # Show per-role tool counts
+            registries = getattr(self.orchestrator, "_github_registries", {})
+            if registries:
+                table = Table(title="GitHub Tools per Role", box=box.SIMPLE)
+                table.add_column("Role", style="cyan")
+                table.add_column("Tools", style="green", justify="right")
+                for role_name, reg in sorted(registries.items()):
+                    table.add_row(role_name, str(len(reg.list_tools())))
+                console.print(table)
+
+            # If subcommand: github tools <role>
+            if args and args[0] == "tools" and len(args) > 1:
+                role_name = args[1]
+                reg = registries.get(role_name)
+                if reg:
+                    console.print(f"\n[bold]Tools for {role_name}:[/bold]")
+                    for name in reg.list_tools():
+                        defn = reg.get_definition(name)
+                        desc = defn.description[:80] if defn and defn.description else ""
+                        console.print(f"  [cyan]{name}[/cyan] — {desc}")
+                else:
+                    console.print(f"[yellow]No GitHub tools for role '{role_name}'[/yellow]")
+        console.print()
+
+    def handle_tools(self, args: list):
+        """Show all tools available to each role."""
+        from core.tool_registry import ToolRegistry
+        console.print()
+        roles = [
+            ("BA", Role.BA),
+            ("QA", Role.QA),
+            ("Senior Dev", Role.SENIOR_DEV),
+            ("Coder", Role.CODER),
+            ("Coder 2", Role.CODER_2),
+            ("Reviewer", Role.REVIEWER),
+        ]
+
+        # If a role filter was specified
+        filter_role = args[0].lower() if args else None
+
+        for role_name, role in roles:
+            if filter_role and filter_role not in role_name.lower() and filter_role != role.value:
+                continue
+            registry = self.orchestrator._build_tool_registry(role)
+            if registry and registry.list_tools():
+                tool_names = registry.list_tools()
+                console.print(f"[bold cyan]{role_name}[/bold cyan] ({len(tool_names)} tools)")
+                for name in tool_names:
+                    defn = registry.get_definition(name)
+                    desc = (defn.description[:70] if defn and defn.description else "")
+                    console.print(f"  [dim]•[/dim] {name} — {desc}")
+                console.print()
+            else:
+                console.print(f"[bold cyan]{role_name}[/bold cyan] — [dim]no tools[/dim]")
+        console.print()
+
+    def handle_kickoff(self, args: list):
+        """Run the full project pipeline — the flagship IT team experience."""
+        project_name = args[0] if args else ""
+        if not project_name:
+            project_name = Prompt.ask("[cyan]Project name[/cyan]", default="my-project")
+
+        requirement = Prompt.ask("[cyan]Describe the project (what should we build?)[/cyan]")
+        if not requirement.strip():
+            console.print("[red]A project description is required.[/red]")
+            return
+
+        repo_owner = ""
+        skip_github = True
+        settings = get_settings()
+        if settings.github_mcp_enabled and settings.github_token:
+            use_gh = Prompt.ask(
+                "[cyan]Create GitHub repo?[/cyan]", choices=["yes", "no"], default="yes"
+            )
+            if use_gh == "yes":
+                skip_github = False
+                repo_owner = Prompt.ask("[cyan]GitHub owner (user/org)[/cyan]", default="")
+
+        # ── phase status indicators ──────────────────────────────────
+        phase_icons = {
+            "planning": "📋", "setup": "🏗️", "build": "⚡",
+            "quality": "🧪", "review": "🔍", "delivery": "📦",
+        }
+        phase_labels = {
+            "planning": "Planning — BA stories, team discussion",
+            "setup": "Setup — Architecture, project scaffolding",
+            "build": "Build — Coders implement features",
+            "quality": "Quality — QA tests & Excel test plan",
+            "review": "Review — Code review & PR feedback",
+            "delivery": "Delivery — Summary & run instructions",
+        }
+        step_count = 0
+        phase_start_times: dict = {}
+
+        def on_phase_start(phase_name: str):
+            nonlocal step_count
+            phase_start_times[phase_name] = time.time()
+            icon = phase_icons.get(phase_name, "▶")
+            label = phase_labels.get(phase_name, phase_name)
+            console.print(f"\n{'─' * 60}")
+            console.print(f"  {icon}  [bold blue]Phase: {label}[/bold blue]")
+            console.print(f"{'─' * 60}")
+
+        def on_step_done(phase_name: str, step_name: str, response):
+            nonlocal step_count
+            step_count += 1
+            role_label = step_name.replace("_", " ").title()
+            tokens = response.total_tokens
+            console.print(f"\n  [green]✓[/green] {role_label} [dim]({response.model} | {tokens} tokens)[/dim]")
+
+            # Show a truncated preview
+            preview = response.content.strip()
+            if len(preview) > 400:
+                preview = preview[:400].rstrip() + "…"
+            console.print(Panel(
+                Markdown(preview),
+                title=f"[bold]{role_label}[/bold]",
+                subtitle=f"[dim]step {step_count}[/dim]",
+                box=box.SIMPLE,
+                width=min(console.width - 4, 100),
+            ))
+
+        def on_phase_done(result: PhaseResult):
+            dur = result.duration
+            icon = "✓" if result.status == PhaseStatus.COMPLETED else "✗"
+            color = "green" if result.status == PhaseStatus.COMPLETED else "red"
+            console.print(f"\n  [{color}]{icon} Phase {result.name} complete ({dur:.1f}s)[/{color}]")
+            if result.errors:
+                for err in result.errors:
+                    console.print(f"    [red]Error: {err}[/red]")
+
+        # ── run the pipeline ─────────────────────────────────────────
+        console.print(f"\n[bold yellow]🚀 Kicking off project: {project_name}[/bold yellow]")
+        console.print(f"[dim]Requirement: {requirement[:120]}{'…' if len(requirement) > 120 else ''}[/dim]")
+        console.print(f"[dim]GitHub: {'enabled' if not skip_github else 'offline mode'}[/dim]\n")
+
+        pipeline = ProjectPipeline(
+            self.orchestrator,
+            on_phase_start=on_phase_start,
+            on_step_done=on_step_done,
+            on_phase_done=on_phase_done,
+        )
+
+        t0 = time.time()
+        result = pipeline.run(
+            requirement=requirement,
+            project_name=project_name,
+            repo_owner=repo_owner,
+            skip_github=skip_github,
+        )
+        total = time.time() - t0
+
+        # ── final summary ────────────────────────────────────────────
+        console.print(f"\n{'═' * 60}")
+        if result.status == PhaseStatus.COMPLETED:
+            console.print(f"[bold green]  ✓ PROJECT COMPLETE — {project_name}[/bold green]")
+        else:
+            console.print(f"[bold red]  ✗ PROJECT PIPELINE FAILED[/bold red]")
+        console.print(f"  Total time: {total:.1f}s | Steps: {step_count}")
+        console.print(f"{'═' * 60}")
+
+        # Show delivery output in full
+        delivery = result.phases.get("delivery")
+        if delivery and delivery.outputs:
+            last_output = list(delivery.outputs.values())[-1]
+            console.print()
+            console.print(Panel(
+                Markdown(last_output.content),
+                title="[bold green]📦 DELIVERY SUMMARY[/bold green]",
+                box=box.DOUBLE,
+            ))
+
+        # Show artifacts summary
+        artifacts = result.all_artifacts
+        if artifacts:
+            console.print("\n[bold cyan]Artifacts:[/bold cyan]")
+            for key, val in artifacts.items():
+                console.print(f"  {key}: {val}")
+
+        console.print()
+
     def get_prompt_text(self) -> str:
         if self.current_role:
             return f"clai ({self.current_role.value})> "
@@ -344,6 +668,8 @@ class CLAIShell:
             self.print_team()
         elif cmd == "workflows":
             self.print_workflows()
+        elif cmd == "stages":
+            self.print_stages()
         elif cmd == "config":
             self.handle_config()
         elif cmd == "clear":
@@ -351,6 +677,8 @@ class CLAIShell:
             self.print_banner()
         elif cmd == "workflow":
             self.handle_workflow(args)
+        elif cmd == "stage":
+            self.handle_stage(args)
         elif cmd == "history":
             for role, agent in self.orchestrator._agents.items():
                 if agent.conversation_history:
@@ -372,6 +700,12 @@ class CLAIShell:
             self.handle_tree(args)
         elif cmd == "readfile":
             self.handle_read_file(args)
+        elif cmd == "github":
+            self.handle_github(args)
+        elif cmd == "tools":
+            self.handle_tools(args)
+        elif cmd == "kickoff":
+            self.handle_kickoff(args)
         elif user_input.startswith("@") or "@" in user_input:
             self.handle_mention(user_input)
         else:

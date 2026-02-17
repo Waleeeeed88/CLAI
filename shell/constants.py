@@ -6,12 +6,22 @@ from agents.factory import Role
 COMMANDS = [
     "help", "team", "workflows", "workflow", "config",
     "clear", "history", "save", "exit", "quit",
-    "projects", "newproject", "files", "tree", "readfile", "workspace"
+    "projects", "newproject", "files", "tree", "readfile", "workspace",
+    "stages", "stage",
+    "github", "tools", "kickoff",
 ]
 
 ROLES = ["senior_dev", "coder", "coder_2", "qa", "ba", "reviewer"]
 
-WORKFLOWS = ["feature", "review", "bugfix", "architecture"]
+WORKFLOWS = ["feature", "review", "bugfix", "architecture", "project_setup", "pr_review", "full_feature", "test_and_verify"]
+
+STAGES = [
+    "planning_discussion",
+    "architecture_alignment",
+    "implementation_breakdown",
+    "verification_hardening",
+    "release_handoff",
+]
 
 MENTION_ALIASES: Dict[str, Role] = {
     "@senior": Role.SENIOR_DEV,

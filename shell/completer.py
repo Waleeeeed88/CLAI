@@ -1,12 +1,12 @@
 """Tab completion for shell."""
 from prompt_toolkit.completion import Completer, Completion
-from .constants import MENTION_ALIASES, TEAM_MENTIONS, COMMANDS, WORKFLOWS
+from .constants import MENTION_ALIASES, TEAM_MENTIONS, COMMANDS, WORKFLOWS, STAGES
 
 
 class MentionCompleter(Completer):
     def __init__(self):
         self.mentions = list(MENTION_ALIASES.keys()) + TEAM_MENTIONS
-        self.commands = COMMANDS + WORKFLOWS
+        self.commands = COMMANDS + WORKFLOWS + STAGES
     
     def get_completions(self, document, complete_event):
         text = document.text_before_cursor

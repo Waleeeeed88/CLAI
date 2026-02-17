@@ -1,18 +1,21 @@
 # CLAI — Command Line AI Team
 
-> Your AI dev team in the terminal. Claude architects, GPT codes, Gemini specs.
+> Your AI dev team in the terminal. Claude architects, GPT analyses, Gemini codes — and they all use real tools.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                                                                     │
-│   You ──► @senior design auth API                                   │
+│   You ──► kickoff my-api                                            │
 │                │                                                    │
-│                ▼                                                    │
-│           ┌─────────┐    ┌─────────┐    ┌─────────┐                │
-│           │ Claude  │───▶│  GPT    │───▶│ Gemini  │                │
-│           │ Sonnet  │    │  4o     │    │  2.0    │                │
-│           └─────────┘    └─────────┘    └─────────┘                │
-│           Senior Dev      Coder          BA                        │
+│   📋 Planning ──► 🏗️ Setup ──► ⚡ Build ──► 🧪 QA ──► 🔍 Review    │
+│                                                                     │
+│   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐           │
+│   │  Claude   │  │  GPT     │  │  Gemini  │  │  Claude   │          │
+│   │  Opus 4.5 │  │  5.2     │  │  3 Pro   │  │  Sonnet   │          │
+│   └──────────┘  └──────────┘  └──────────┘  └──────────┘           │
+│   Senior Dev     BA            Coder 2       Reviewer               │
+│                                                                     │
+│   📦 Result: GitHub repo + branches + PRs + tests + delivery doc    │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -22,13 +25,15 @@
 ## Quick Start
 
 ```bash
-# 1. Install
+# 1. Clone & install
+git clone <repo-url> CLAI && cd CLAI
+python -m venv venv && .\venv\Scripts\Activate.ps1   # Windows
 pip install -r requirements.txt
 
-# 2. Add your API keys
-cp .env.example .env   # Then edit .env
+# 2. Add API keys
+cp .env.example .env   # Then edit with your keys
 
-# 3. Launch the shell
+# 3. Launch
 python shell.py
 ```
 
@@ -36,51 +41,163 @@ python shell.py
 
 ## The Team
 
-| Role | Model | What They Do |
-|------|-------|--------------|
-| **@senior** | Claude opus 4.5 | Architecture, complex problems, tech decisions |
-| **@dev** | sonnet 4.5, gemini-3-pro | Fast implementation, features, utilities |
-| **@qa** | GPT-5.2-high | Bug hunting, test cases, edge cases |
-| **@ba** | Gemini 3 pro | Requirements, user stories, specs |
-| **@reviewer** | Claude Sonnet | Quick code reviews, style feedback |
+| Role | @Mention | Model | Specialty |
+|------|----------|-------|-----------|
+| **Senior Dev** | `@senior` | Claude Opus 4.5 | Architecture, system design, tech leadership |
+| **Coder** | `@dev` | Claude Sonnet 4.5 | Primary implementation, features, bug fixes |
+| **Coder 2** | `@dev2` | Gemini 3 Pro | Large-context secondary coder |
+| **QA** | `@qa` | Gemini 3 Flash | Testing, bug hunting, Excel test plans |
+| **BA** | `@ba` | GPT 5.2 | Requirements, user stories, GitHub issues |
+| **Reviewer** | `@reviewer` | Claude Sonnet 4.5 | Code review, PR feedback |
 
 ---
 
-## How to Talk to Them
+## What Can It Do?
 
-### @Mentions (Natural)
+### Talk to Individual Agents
 
 ```
 clai> @senior design a REST API for user auth
 clai> @dev implement that in Python > api.py
 clai> @qa review this < api.py
-clai> @team thoughts on microservices?
 ```
 
-### File I/O
+### Run Multi-Agent Workflows
+
+```
+clai> workflow feature
+> Requirement: User authentication with OAuth
+
+   BA ──► QA ──► Senior Dev ──► Coder ──► Coder 2
+   stories  tests  architecture  implement  refine
+```
+
+**8 workflows:** `feature` · `review` · `bugfix` · `architecture` · `project_setup` · `full_feature` · `pr_review` · `test_and_verify`
+
+### Kick Off a Full Project
+
+```
+clai> kickoff my-auth-api
+> Describe the project: REST API with JWT auth, roles, and OAuth
+
+📋 Planning    → BA creates user stories + GitHub issues
+🏗️ Setup       → Senior Dev architects, scaffolds repo + branches
+⚡ Build       → Two coders implement on feature branches, create PRs
+🧪 Quality     → QA writes tests, Excel test plan, runs pytest
+🔍 Review      → Reviewer reviews PRs on GitHub
+📦 Delivery    → Senior Dev writes DELIVERY.md + localhost instructions
+```
+
+### Team Roundtable Discussions
+
+```
+clai> @team Should we use REST or GraphQL?
+```
+
+Each agent responds in turn, reacting to previous answers.
+
+---
+
+## Tool System
+
+Agents don't just generate text — they **use real tools**:
+
+| Category | Tools | Who Gets Them |
+|----------|-------|---------------|
+| **Filesystem** | `read_file`, `write_file`, `get_tree`, `grep`, ... | All agents |
+| **GitHub** | `create_repository`, `create_branch`, `push_files`, `create_pull_request`, ... | Role-scoped |
+| **QA** | `create_test_plan_excel`, `run_tests` | QA |
+
+All tool usage is **native function calling** — not prompt-based hacks. Each provider uses its own format (Anthropic `tool_use`, OpenAI `tool_calls`, Gemini `function_call`).
+
+```
+clai> tools              # See all tools
+clai> tools senior_dev   # See Senior Dev's tools
+clai> github             # Check GitHub connection
+```
+
+---
+
+## GitHub Integration
+
+When configured, agents interact with GitHub directly:
+
+- **BA** creates repositories and issues for user stories
+- **Senior Dev** creates branches and manages repo structure
+- **Coders** push code to feature branches and create PRs
+- **QA** files issues for bugs found during testing
+- **Reviewer** posts reviews on pull requests
+
+```ini
+# .env
+GITHUB_TOKEN=ghp_your_token
+GITHUB_MCP_ENABLED=true
+```
+
+Uses the official [Model Context Protocol](https://modelcontextprotocol.io/) GitHub server.
+
+---
+
+## File I/O
 
 ```
 @dev write a CLI tool > mycli.py      # Save output to file
-@qa look at this < broken.py          # Load file as input  
+@qa look at this < broken.py          # Load file as input
 @senior review < src/                 # Load entire folder
 save output.md                        # Save last response
 ```
 
-### Workflows (Multi-Agent Pipelines)
+All file paths are relative to `workspace/` (sandboxed).
 
+---
+
+## Configuration
+
+### Required
+
+```ini
+# .env
+ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-...
+GOOGLE_API_KEY=AI...
 ```
-clai> workflow feature
-> Feature requirement: User authentication with OAuth
 
-   BA ──────► Senior Dev ──────► Coder ──────► QA
-   specs       architecture      implement     test
+### Optional
+
+```ini
+# GitHub
+GITHUB_TOKEN=ghp_...
+GITHUB_MCP_ENABLED=true
+
+# Model overrides
+SENIOR_DEV_MODEL=claude-opus-4-5-20251101
+CODER_MODEL=claude-sonnet-4-5-20250929
+
+# Per-role provider override (JSON)
+ROLE_PROVIDER_OVERRIDES={"qa": "openai"}
 ```
 
-**Available workflows:**
-- `feature` — Full feature dev (BA → Senior → Coder → QA)
-- `review` — Code review (Reviewer → Senior)
-- `bugfix` — Bug analysis (QA → Senior → Coder)
-- `architecture` — System design (BA → Senior → QA)
+Get keys from: [Anthropic](https://console.anthropic.com) · [OpenAI](https://platform.openai.com/api-keys) · [Google](https://aistudio.google.com/apikey) · [GitHub](https://github.com/settings/tokens)
+
+---
+
+## Commands Reference
+
+| Command | Description |
+|---------|-------------|
+| `@<role> <prompt>` | Talk to a specific agent |
+| `@team <prompt>` | Roundtable discussion |
+| `kickoff [name]` | Full project pipeline (6 phases) |
+| `workflow <name>` | Run a named workflow |
+| `stage <name>` | Run a structured discussion |
+| `tools [role]` | Inspect agent tools |
+| `github` | GitHub MCP status |
+| `team` | Show team roster |
+| `config` | Check API key status |
+| `workspace` | Show workspace path |
+| `files` / `tree` | Browse workspace files |
+| `save <file>` | Save last response |
+| `help` | Full command list |
 
 ---
 
@@ -88,144 +205,48 @@ clai> workflow feature
 
 ```
 CLAI/
-├── shell.py              # Interactive UI (start here)
-├── configure.py          # CLI entry point
-├── orchestrator.py       # Coordinates multi-agent workflows
-│
-├── agents/               # AI provider wrappers
-│   ├── base.py           # Common interface (Template pattern)
-│   ├── claude_agent.py   # Anthropic
-│   ├── gpt_agent.py      # OpenAI  
-│   ├── gemini_agent.py   # Google
-│   └── factory.py        # Creates agents by role
-│
-├── roles/                # Team member personalities
-│   ├── senior_dev.py     # System prompts & config
-│   ├── coder.py
-│   ├── qa.py
-│   ├── ba.py
-│   └── reviewer.py
-│
+├── shell.py                  # Entry point
+├── cli.py                    # CLI (non-interactive)
+├── shell/
+│   ├── main.py               # Shell logic, commands, @mention parsing
+│   ├── constants.py          # Commands, aliases, workflow lists
+│   └── completer.py          # Tab completion
+├── agents/
+│   ├── base.py               # BaseAgent — tool-call loop, message mgmt
+│   ├── claude_agent.py       # Anthropic provider
+│   ├── gpt_agent.py          # OpenAI provider
+│   ├── gemini_agent.py       # Google provider
+│   └── factory.py            # Role → Provider → Agent creation
+├── roles/                    # System prompts per role
+│   ├── senior_dev.py
+│   ├── coder.py / coder_2.py
+│   ├── qa.py / ba.py / reviewer.py
+│   └── base.py              # RoleConfig dataclass
+├── core/
+│   ├── orchestrator.py       # Mediator — ask(), run_workflow(), roundtable
+│   ├── pipeline.py           # ProjectPipeline — 6-phase kickoff
+│   ├── tool_registry.py      # Tool definitions + provider format converters
+│   ├── filesystem_tools.py   # Sandboxed file operations
+│   ├── mcp_client.py         # MCP SDK client wrapper
+│   ├── mcp_bridge.py         # MCP → ToolRegistry bridge (role-scoped)
+│   ├── excel_tools.py        # Excel test plan generation
+│   ├── test_runner.py        # pytest execution
+│   ├── workflows.py          # WorkflowStep/Result dataclasses
+│   └── filesystem.py         # Low-level file ops
 ├── config/
-│   └── settings.py       # API keys & model config
-│
-└── .env                  # Your API keys (git-ignored)
+│   └── settings.py           # Pydantic Settings, .env loading
+├── workspace/                # Sandboxed agent file area
+├── docs/
+│   └── USAGE_GUIDE.md        # Comprehensive usage documentation
+└── .env                      # Your API keys (gitignored)
 ```
 
 ---
 
-## How It Works
+## Documentation
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                         FLOW                                      │
-├──────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│   1. You type: @senior design a cache layer                      │
-│                    │                                              │
-│   2. Shell parses @mention ──► Role.SENIOR_DEV                   │
-│                    │                                              │
-│   3. Orchestrator gets/creates agent for that role               │
-│                    │                                              │
-│   4. AgentFactory ──► ClaudeAgent (with senior_dev prompt)       │
-│                    │                                              │
-│   5. ClaudeAgent sends to Anthropic API                          │
-│                    │                                              │
-│   6. Response displayed in rich panel                            │
-│                                                                   │
-└──────────────────────────────────────────────────────────────────┘
-```
-
-### Workflows go deeper:
-
-```
-workflow feature -r "OAuth login"
-
-   Step 1: BA (Gemini)
-           └─► "Create user stories for OAuth login"
-           └─► Output: specs & acceptance criteria
-                    │
-   Step 2: Senior Dev (Claude)  
-           └─► "Design architecture" + [BA's output]
-           └─► Output: technical design
-                    │
-   Step 3: Coder (GPT)
-           └─► "Implement" + [BA + Senior outputs]
-           └─► Output: working code
-                    │
-   Step 4: QA (GPT)
-           └─► "Test & review" + [Coder's output]
-           └─► Output: test cases, issues found
-```
-
----
-
-## Configuration
-
-### Required API Keys
-
-Get them from:
-- **Anthropic**: https://console.anthropic.com
-- **OpenAI**: https://platform.openai.com/api-keys
-- **Google**: https://aistudio.google.com/apikey
-
-### .env File
-
-```bash
-ANTHROPIC_API_KEY=sk-ant-...
-OPENAI_API_KEY=sk-...
-GOOGLE_API_KEY=AI...
-
-# Optional: override models
-SENIOR_DEV_MODEL=claude-sonnet-4-20250514
-CODER_MODEL=gpt-4o
-QA_MODEL=gpt-4o
-BA_MODEL=gemini-2.0-flash-exp
-```
-
----
-
-## Commands Reference
-
-| In Shell | What It Does |
-|----------|--------------|
-   
-| `team` | Show team status |
-| `config` | Check API keys |
-| `clear` | Clear screen |
-| `exit` | Quit |
-
----
-
-## Adding Your Own Role
-
-1. Create `roles/devops.py`:
-```python
-from .base import RoleConfig, register_role
-
-DEVOPS_CONFIG = RoleConfig(
-    name="DevOps Engineer",
-    description="Infrastructure and deployment",
-    system_prompt="You are a DevOps engineer...",
-    max_tokens=4096,
-    temperature=0.6,
-)
-
-register_role("devops", DEVOPS_CONFIG)
-```
-
-2. Add to `agents/factory.py`:
-```python
-class Role(Enum):
-    DEVOPS = "devops"
-
-ROLE_PROVIDERS[Role.DEVOPS] = Provider.OPENAI
-```
-
-3. Add mention in `shell.py`:
-```python
-MENTION_ALIASES["@devops"] = Role.DEVOPS
-```
+- **[Usage Guide](docs/USAGE_GUIDE.md)** — Complete reference: all commands, workflows, pipeline, tools, configuration, extension guide
+- **[Onboarding](onboarding.md)** — Developer onboarding: codebase walkthrough, how things connect
 
 ---
 
