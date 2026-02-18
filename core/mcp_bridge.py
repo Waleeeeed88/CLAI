@@ -39,6 +39,12 @@ def _json_schema_to_parameters(schema: Dict[str, Any]) -> List[ToolParameter]:
         if isinstance(param_type, list):
             # JSON Schema union, pick the first non-null type
             param_type = next((t for t in param_type if t != "null"), "string")
+
+        # Preserve array items schema — required by OpenAI/Anthropic
+        items = None
+        if param_type == "array":
+            items = prop.get("items", {"type": "string"})
+
         params.append(
             ToolParameter(
                 name=name,
@@ -46,6 +52,7 @@ def _json_schema_to_parameters(schema: Dict[str, Any]) -> List[ToolParameter]:
                 description=prop.get("description", ""),
                 required=name in required_set,
                 enum=prop.get("enum"),
+                items=items,
             )
         )
     return params
@@ -110,10 +117,10 @@ GITHUB_REVIEWER_TOOLS = [
     "get_pull_request",
     "list_pull_requests",
     "create_pull_request_review",
-    "get_pull_request_diff",
     "get_pull_request_files",
-    "list_pull_request_files",
-    "add_pull_request_review_comment",
+    "get_pull_request_status",
+    "get_pull_request_comments",
+    "get_pull_request_reviews",
 ]
 
 GITHUB_CODER_TOOLS = [
@@ -136,9 +143,12 @@ GITHUB_QA_TOOLS = [
 GITHUB_SENIOR_TOOLS = [
     # Repo management
     "create_repository",
+    "create_issue",
     "list_issues",
     "search_issues",
     "get_issue",
+    "update_issue",
+    "add_issue_comment",
     # Branch & file operations
     "create_branch",
     "list_branches",
@@ -149,6 +159,7 @@ GITHUB_SENIOR_TOOLS = [
     "create_pull_request",
     "list_pull_requests",
     "get_pull_request",
+    "update_pull_request_branch",
     "merge_pull_request",
 ]
 

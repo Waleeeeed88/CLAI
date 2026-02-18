@@ -55,7 +55,7 @@ class CLAIShell:
         console.print("  tools [role]             # List tools available to agents")
         console.print("  github                   # GitHub MCP status & tools")
         console.print("\n[bold cyan]Project Pipeline[/bold cyan]")
-        console.print("  kickoff [name]           # Full project pipeline: plan → setup → build → test → review → deliver")
+        console.print("  kickoff [name]           # Simple pipeline: planning -> implementation -> github_mcp")
         console.print("\n[bold cyan]Stages[/bold cyan]")
         console.print("  stage planning_discussion   # Active")
         console.print("  stages                      # List all stages")
@@ -307,6 +307,30 @@ class CLAIShell:
                 console.print("[red]A topic is required for planning_discussion[/red]")
                 return
             context["requirement"] = topic
+        elif stage_name == "architecture_alignment":
+            topic = Prompt.ask("[cyan]Describe the system or feature to architect[/cyan]")
+            if not topic.strip():
+                console.print("[red]A description is required for architecture_alignment[/red]")
+                return
+            context["requirement"] = topic
+        elif stage_name == "implementation_breakdown":
+            topic = Prompt.ask("[cyan]What should the team break down into tasks?[/cyan]")
+            if not topic.strip():
+                console.print("[red]A topic is required for implementation_breakdown[/red]")
+                return
+            context["requirement"] = topic
+        elif stage_name == "verification_hardening":
+            topic = Prompt.ask("[cyan]What feature or system needs verification planning?[/cyan]")
+            if not topic.strip():
+                console.print("[red]A topic is required for verification_hardening[/red]")
+                return
+            context["requirement"] = topic
+        elif stage_name == "release_handoff":
+            topic = Prompt.ask("[cyan]Describe the release scope (feature, version, or date)[/cyan]")
+            if not topic.strip():
+                console.print("[red]A release scope is required for release_handoff[/red]")
+                return
+            context["requirement"] = topic
 
         console.print(f"\n[bold blue]🧩 Running stage: {stage_name}...[/bold blue]\n")
         try:
@@ -538,18 +562,16 @@ class CLAIShell:
                 skip_github = False
                 repo_owner = Prompt.ask("[cyan]GitHub owner (user/org)[/cyan]", default="")
 
-        # ── phase status indicators ──────────────────────────────────
+        # Phase status indicators
         phase_icons = {
-            "planning": "📋", "setup": "🏗️", "build": "⚡",
-            "quality": "🧪", "review": "🔍", "delivery": "📦",
+            "planning": "[P]",
+            "implementation": "[I]",
+            "github_mcp": "[G]",
         }
         phase_labels = {
-            "planning": "Planning — BA stories, team discussion",
-            "setup": "Setup — Architecture, project scaffolding",
-            "build": "Build — Coders implement features",
-            "quality": "Quality — QA tests & Excel test plan",
-            "review": "Review — Code review & PR feedback",
-            "delivery": "Delivery — Summary & run instructions",
+            "planning": "Planning - stories and issue backlog",
+            "implementation": "Implementation - code + Excel QA artifacts",
+            "github_mcp": "GitHub MCP - issue sync or local txt fallback",
         }
         step_count = 0
         phase_start_times: dict = {}
@@ -557,23 +579,23 @@ class CLAIShell:
         def on_phase_start(phase_name: str):
             nonlocal step_count
             phase_start_times[phase_name] = time.time()
-            icon = phase_icons.get(phase_name, "▶")
+            icon = phase_icons.get(phase_name, "[>]")
             label = phase_labels.get(phase_name, phase_name)
-            console.print(f"\n{'─' * 60}")
+            console.print(f"\n{'-' * 60}")
             console.print(f"  {icon}  [bold blue]Phase: {label}[/bold blue]")
-            console.print(f"{'─' * 60}")
+            console.print(f"{'-' * 60}")
 
         def on_step_done(phase_name: str, step_name: str, response):
             nonlocal step_count
             step_count += 1
             role_label = step_name.replace("_", " ").title()
             tokens = response.total_tokens
-            console.print(f"\n  [green]✓[/green] {role_label} [dim]({response.model} | {tokens} tokens)[/dim]")
+            console.print(f"\n  [green]OK[/green] {role_label} [dim]({response.model} | {tokens} tokens)[/dim]")
 
             # Show a truncated preview
             preview = response.content.strip()
             if len(preview) > 400:
-                preview = preview[:400].rstrip() + "…"
+                preview = preview[:400].rstrip() + "..."
             console.print(Panel(
                 Markdown(preview),
                 title=f"[bold]{role_label}[/bold]",
@@ -584,16 +606,16 @@ class CLAIShell:
 
         def on_phase_done(result: PhaseResult):
             dur = result.duration
-            icon = "✓" if result.status == PhaseStatus.COMPLETED else "✗"
+            icon = "OK" if result.status == PhaseStatus.COMPLETED else "X"
             color = "green" if result.status == PhaseStatus.COMPLETED else "red"
             console.print(f"\n  [{color}]{icon} Phase {result.name} complete ({dur:.1f}s)[/{color}]")
             if result.errors:
                 for err in result.errors:
                     console.print(f"    [red]Error: {err}[/red]")
 
-        # ── run the pipeline ─────────────────────────────────────────
-        console.print(f"\n[bold yellow]🚀 Kicking off project: {project_name}[/bold yellow]")
-        console.print(f"[dim]Requirement: {requirement[:120]}{'…' if len(requirement) > 120 else ''}[/dim]")
+        # Run the pipeline
+        console.print(f"\n[bold yellow]Kicking off project: {project_name}[/bold yellow]")
+        console.print(f"[dim]Requirement: {requirement[:120]}{'...' if len(requirement) > 120 else ''}[/dim]")
         console.print(f"[dim]GitHub: {'enabled' if not skip_github else 'offline mode'}[/dim]\n")
 
         pipeline = ProjectPipeline(
@@ -612,25 +634,31 @@ class CLAIShell:
         )
         total = time.time() - t0
 
-        # ── final summary ────────────────────────────────────────────
-        console.print(f"\n{'═' * 60}")
+        # Final summary
+        console.print(f"\n{'=' * 60}")
         if result.status == PhaseStatus.COMPLETED:
-            console.print(f"[bold green]  ✓ PROJECT COMPLETE — {project_name}[/bold green]")
+            console.print(f"[bold green]  PROJECT COMPLETE - {project_name}[/bold green]")
         else:
-            console.print(f"[bold red]  ✗ PROJECT PIPELINE FAILED[/bold red]")
+            console.print("[bold red]  PROJECT PIPELINE FAILED[/bold red]")
         console.print(f"  Total time: {total:.1f}s | Steps: {step_count}")
-        console.print(f"{'═' * 60}")
+        console.print(f"{'=' * 60}")
 
-        # Show delivery output in full
-        delivery = result.phases.get("delivery")
-        if delivery and delivery.outputs:
-            last_output = list(delivery.outputs.values())[-1]
+        # Show final phase output in full (prefer github_mcp)
+        final_phase = (
+            result.phases.get("github_mcp")
+            or result.phases.get("implementation")
+            or result.phases.get("planning")
+        )
+        if final_phase and final_phase.outputs:
+            last_output = list(final_phase.outputs.values())[-1]
             console.print()
-            console.print(Panel(
-                Markdown(last_output.content),
-                title="[bold green]📦 DELIVERY SUMMARY[/bold green]",
-                box=box.DOUBLE,
-            ))
+            console.print(
+                Panel(
+                    Markdown(last_output.content),
+                    title="[bold green]PIPELINE SUMMARY[/bold green]",
+                    box=box.DOUBLE,
+                )
+            )
 
         # Show artifacts summary
         artifacts = result.all_artifacts
@@ -743,3 +771,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

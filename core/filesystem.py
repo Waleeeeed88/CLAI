@@ -30,9 +30,17 @@ class OperationResult:
 
 
 class FileSystemTools:
-    def __init__(self):
-        settings = get_settings()
-        self.workspace_root = settings.workspace_path
+    def __init__(self, workspace_root: str | None = None):
+        if workspace_root:
+            self.workspace_root = Path(workspace_root).resolve()
+        else:
+            settings = get_settings()
+            self.workspace_root = settings.workspace_path
+        self._ensure_workspace()
+
+    def set_workspace_root(self, path: str) -> None:
+        """Change the workspace root at runtime."""
+        self.workspace_root = Path(path).resolve()
         self._ensure_workspace()
     
     def _ensure_workspace(self) -> None:

@@ -1,26 +1,28 @@
 # CLAI — Comprehensive Usage Guide
 
-> Your AI development team in the terminal. Architect, code, test, review, and ship — all from one CLI.
+> Your AI development team in the terminal — or the browser. Architect, code, test, review, and ship.
 
 ---
 
 ## Table of Contents
 
 1. [Installation & Setup](#installation--setup)
-2. [The Team — Who Does What](#the-team--who-does-what)
-3. [Getting Started — Your First Commands](#getting-started--your-first-commands)
-4. [Shell Commands Reference](#shell-commands-reference)
-5. [@Mentions — Talking to Your Team](#mentions--talking-to-your-team)
-6. [File I/O — Reading & Writing Files](#file-io--reading--writing-files)
-7. [Workflows — Multi-Agent Pipelines](#workflows--multi-agent-pipelines)
-8. [Stages — Structured Team Conversations](#stages--structured-team-conversations)
-9. [Kickoff — Full Project Pipeline](#kickoff--full-project-pipeline)
-10. [Tool System — What Agents Can Do](#tool-system--what-agents-can-do)
-11. [GitHub Integration](#github-integration)
-12. [Configuration Reference](#configuration-reference)
-13. [Architecture Overview](#architecture-overview)
-14. [Extending CLAI](#extending-clai)
-15. [Troubleshooting](#troubleshooting)
+2. [Choosing Your Interface — CLI vs Web](#choosing-your-interface--cli-vs-web)
+3. [The Team — Who Does What](#the-team--who-does-what)
+4. [Getting Started — Your First Commands](#getting-started--your-first-commands)
+5. [Shell Commands Reference](#shell-commands-reference)
+6. [@Mentions — Talking to Your Team](#mentions--talking-to-your-team)
+7. [File I/O — Reading & Writing Files](#file-io--reading--writing-files)
+8. [Workflows — Multi-Agent Pipelines](#workflows--multi-agent-pipelines)
+9. [Stages — Structured Team Conversations](#stages--structured-team-conversations)
+10. [Kickoff — Full Project Pipeline](#kickoff--full-project-pipeline)
+11. [Web App Interface](#web-app-interface)
+12. [Tool System — What Agents Can Do](#tool-system--what-agents-can-do)
+13. [GitHub Integration](#github-integration)
+14. [Configuration Reference](#configuration-reference)
+15. [Architecture Overview](#architecture-overview)
+16. [Extending CLAI](#extending-clai)
+17. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -30,10 +32,10 @@
 
 - Python 3.10+
 - API keys from at least one of: [Anthropic](https://console.anthropic.com), [OpenAI](https://platform.openai.com/api-keys), [Google AI Studio](https://aistudio.google.com/apikey)
-- (Optional) [Node.js](https://nodejs.org) for GitHub MCP server
+- (Optional) [Node.js 18+](https://nodejs.org) — required for the web app frontend and GitHub MCP server
 - (Optional) A [GitHub Personal Access Token](https://github.com/settings/tokens) for GitHub integration
 
-### Install
+### Install Python dependencies
 
 ```bash
 git clone <your-repo-url> CLAI
@@ -47,6 +49,14 @@ python -m venv venv
 source venv/bin/activate
 
 pip install -r requirements.txt
+```
+
+### Install frontend dependencies (web app only)
+
+```bash
+cd frontend
+npm install
+cd ..
 ```
 
 ### Configure API Keys
@@ -76,6 +86,26 @@ python shell.py
 clai> config
 # Should show ✓ for each configured provider
 ```
+
+---
+
+## Choosing Your Interface — CLI vs Web
+
+CLAI offers two fully equivalent interfaces that share the same backend:
+
+| | CLI (`shell.py`) | Web App (`web.py` + `frontend/`) |
+|---|---|---|
+| **Launch** | `python shell.py` | `python web.py` + `npm run dev` |
+| **Interface** | Terminal with Rich panels | Browser chat UI |
+| **Streaming** | Synchronous (shows on completion) | Real-time SSE streaming |
+| **File panel** | `files` / `tree` commands | Live animated file tree |
+| **Workflows** | All 8 | All 8 |
+| **Stages** | All 5 | All 5 |
+| **Kickoff** | ✓ with GitHub prompts | ✓ |
+| **@Mentions** | ✓ | Via stage/workflow selection |
+| **Scripting** | `cli.py` for piping | REST API at `localhost:8000` |
+
+Both interfaces access the **same orchestrator, agents, tools, and workspace** — they are two views of the same system.
 
 ---
 
@@ -189,7 +219,7 @@ This runs the **6-phase pipeline**: Planning → Setup → Build → Quality →
 | `workflow <name>` | Run a named workflow (see Workflows) |
 | `workflows` | List all available workflows |
 | `stage <name>` | Run a named stage (see Stages) |
-| `stages` | List all available stages |
+| `stages` | List all available stages and their status |
 | `kickoff [name]` | Full project pipeline (see Kickoff) |
 
 ### Tool Inspection
@@ -345,24 +375,68 @@ Each step receives outputs from the steps listed in its `depends_on` array.
 
 ## Stages — Structured Team Conversations
 
-Stages are **guided discussion formats** where the team talks through a topic in a structured way.
+Stages are **guided discussion formats** where the full team talks through a topic in a structured, turn-based way. Every stage follows the same pattern:
+
+1. Each agent takes a turn in a defined order
+2. Every agent sees all prior turns before responding
+3. Responses are structured with required headings (~180 words each)
+4. A synthesis agent closes with a compact summary
+
+All 5 stages are fully active.
 
 ### Running a Stage
 
 ```
 clai> stage planning_discussion
-> Topic: How should we handle user authentication?
+> What should the team plan/discuss? Build a real-time notification system
 ```
 
 ### Available Stages
 
-| Stage | Purpose |
-|-------|---------|
-| **planning_discussion** | Cross-role planning: BA → QA → Senior → Coders | Active |
-| **architecture_alignment** | Validate architecture decisions and tradeoffs |
-| **implementation_breakdown** | Convert plan into concrete tasks and ownership |
-| **verification_hardening** | Consolidate testing and quality gates |
-| **release_handoff** | Final release checklist and rollout plan |
+| Stage | Turn Order | Synthesis | Prompt |
+|-------|-----------|-----------|--------|
+| **planning_discussion** | BA → QA → Senior → Coder → Coder 2 | Senior Dev | *What should the team plan/discuss?* |
+| **architecture_alignment** | Senior → Coder → Coder 2 → QA → Reviewer | Senior Dev | *Describe the system or feature to architect* |
+| **implementation_breakdown** | BA → Senior → Coder → Coder 2 → QA | BA | *What should the team break down into tasks?* |
+| **verification_hardening** | QA → Senior → Coder → Coder 2 → Reviewer | QA | *What feature or system needs verification planning?* |
+| **release_handoff** | Senior → Reviewer → QA → BA → Coder | Senior Dev | *Describe the release scope (feature, version, or date)* |
+
+### Stage Headings
+
+Each stage enforces specific headings per turn so responses stay structured and scannable:
+
+| Stage | Turn headings | Synthesis headings |
+|-------|-------------|-------------------|
+| **planning_discussion** | Position · Feedback to Team · Concrete Output | Agreed Plan · QA Gate Criteria · Engineering Sequencing · Open Risks |
+| **architecture_alignment** | Architecture Position · Feedback to Prior Roles · Concrete Decision | Agreed Architecture · Key Technical Decisions · Risk Register · Definition of Done |
+| **implementation_breakdown** | Task Breakdown · Sequencing/Dependencies · Ownership | Sprint 1 Deliverables · Task Ownership Matrix · Dependencies & Blockers · Milestone Criteria |
+| **verification_hardening** | Testing Strategy · Risk Coverage · Quality Gate | Test Coverage Plan · Quality Gates · Edge Cases & Risk Areas · Release Readiness Criteria |
+| **release_handoff** | Release Position · Checklist Items · Sign-off Criteria | Go / No-Go Decision · Release Checklist · Rollback Plan · Post-Release Monitoring |
+
+### Example: architecture_alignment
+
+```
+clai> stage architecture_alignment
+> Describe the system or feature to architect: Real-time notification service
+
+── SENIOR_DEV ──────────────────────────────────────────
+Architecture Position: WebSocket hub with Redis pub/sub…
+Feedback to Prior Roles: No prior discussion yet.
+Concrete Decision: Use FastAPI + Redis Streams + WebSocket.
+
+── CODER ────────────────────────────────────────────────
+Architecture Position: Agree on WebSocket, flag connection…
+Feedback to Prior Roles: Senior's Redis choice is sound…
+Concrete Decision: Will own WebSocket connection manager.
+
+… (QA, Coder 2, Reviewer turns) …
+
+── SYNTHESIS (SENIOR_DEV) ──────────────────────────────
+1) Agreed Architecture: FastAPI WebSocket + Redis Streams…
+2) Key Technical Decisions: Redis for fan-out, JWT auth…
+3) Risk Register: Connection scaling at 10k+…
+4) Definition of Done: Load test passing at 5k concurrent…
+```
 
 ---
 
@@ -434,18 +508,121 @@ clai> kickoff my-project
 | Delivery Summary | `workspace/<project>/DELIVERY.md` | Run instructions + project status |
 | PR Reviews | On GitHub PRs | Reviewer comments + approval/changes |
 
-### Live Output
-
-During execution, you see:
-- **Phase headers** with icons and descriptions
-- **Step completions** with model name and token count
-- **Response previews** in bordered panels
-- **Phase timings** (e.g., "Phase planning complete (45.2s)")
-- **Final delivery summary** in a double-bordered panel
-
 ### Offline Mode
 
 If GitHub isn't configured, `kickoff` runs in **offline mode** — everything still works, but without GitHub repo/issues/PRs. Code is written to the workspace only.
+
+---
+
+## Web App Interface
+
+The web app provides a browser-based alternative to the CLI with real-time streaming and a live file panel.
+
+### Starting the Web App
+
+```bash
+# Terminal 1 — Python backend
+python web.py
+# → FastAPI server at http://localhost:8000
+# → API docs at http://localhost:8000/docs
+
+# Terminal 2 — Next.js frontend
+cd frontend
+npm run dev
+# → UI at http://localhost:3000
+```
+
+### Layout
+
+```
+┌──────────────┬──────────────────────────────┬──────────────┐
+│   Sidebar    │         Chat window          │  Files panel │
+│              │                              │              │
+│  ▾ Stages    │  ● Senior Dev                │  auth.py  ✓  │
+│    planning  │    thinking...               │  models.py ● │
+│    arch. ●   │                              │  tests.py ✓  │
+│    impl. ●   │  ● Dev                       │              │
+│    verif. ●  │    Here's the implementation │              │
+│    release ● │    ┌──────────────────┐      │              │
+│              │    │ write_file ✓  ▼  │      │              │
+│  ▾ Workflows │    └──────────────────┘      │              │
+│    feature   │                              │              │
+│    review    │  ● QA                        │              │
+│    ...       │    Test coverage plan…       │              │
+│              │                              │              │
+│  ▾ Pipeline  │                              │              │
+│    Kickoff   │                              │              │
+│              │                              │              │
+│  Topic:      │                              │              │
+│  [________]  │                              │              │
+│  [ Run  ]    │                              │              │
+└──────────────┴──────────────────────────────┴──────────────┘
+```
+
+### Sidebar
+
+- **Stages** section lists all 5 stages (green dot = active, gray = placeholder). Click a stage to select it.
+- **Workflows** section lists all 8 workflows.
+- **Pipeline** section exposes the kickoff pipeline with a project name field.
+- Type your topic/requirement in the text area and press **Run**.
+
+### Chat Window
+
+- Each agent response appears as a card with an animated badge (colored per role).
+- While an agent is thinking, three bouncing dots are shown.
+- Tool calls appear as expandable rows — click to see arguments and result.
+- Markdown is rendered (headings, code blocks, lists).
+- For the pipeline, phase progress bars appear at the top as each phase completes.
+
+### Live Files Panel (right)
+
+The **Files** panel shows every file written by any agent in real time:
+
+| State | Indicator | Meaning |
+|-------|-----------|---------|
+| Writing | Blue card + spinning icon | Agent is currently writing |
+| Done | Green card + ✓ | File written successfully |
+| Error | Red card + ✗ | Write failed |
+
+Each entry shows: filename, directory path, which agent wrote it, and whether it was `created` (`write_file`) or `updated` (`append_file`). Files animate in from the right as they appear.
+
+### REST API
+
+The backend exposes a simple SSE-based API:
+
+```bash
+# Start a stage run, get back a session_id
+curl -X POST http://localhost:8000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"type":"stage","stage":"planning_discussion","context":{"requirement":"Build a notification service"}}'
+# → {"session_id": "abc-123"}
+
+# Stream events for that session
+curl -N http://localhost:8000/api/chat/abc-123/stream
+# → data: {"type":"agent_start","agent":"ba",...}
+# → data: {"type":"tool_call","agent":"ba","tool":"write_file",...}
+# → data: {"type":"agent_done","agent":"ba","content":"...","tokens":412}
+# → data: {"type":"done"}
+
+# List all workflows and stages
+curl http://localhost:8000/api/workflows
+```
+
+### SSE Event Reference
+
+| Event type | Key fields | Meaning |
+|------------|-----------|---------|
+| `agent_start` | `agent` | Agent begins responding |
+| `agent_done` | `agent`, `content`, `tokens`, `model` | Agent response complete |
+| `tool_call` | `agent`, `tool`, `args` | Tool execution started |
+| `tool_result` | `agent`, `tool`, `preview`, `success` | Tool finished |
+| `phase_start` | `phase` | Pipeline phase begins |
+| `phase_done` | `phase`, `status`, `duration` | Pipeline phase complete |
+| `stage_complete` | `stage`, `status`, `steps`, `duration` | Stage run finished |
+| `workflow_complete` | `workflow`, `status`, `steps`, `duration` | Workflow finished |
+| `pipeline_complete` | `status` | Full pipeline finished |
+| `error` | `message` | An error occurred |
+| `done` | — | Stream closed |
 
 ---
 
@@ -611,26 +788,29 @@ Valid providers: `anthropic`, `openai`, `google`
 ### Component Layers
 
 ```
-shell.py                          ← Entry point (imports shell/main.py)
-    │
-shell/main.py                    ← Interactive UI, @mention parsing, commands
-    │
-core/orchestrator.py             ← Mediator: ask(), run_workflow(), consult_team_discussion()
-    │
-agents/factory.py                ← Factory: Role → Provider → Agent creation
-    │
-agents/{claude,gpt,gemini}_agent.py   ← Provider-specific implementations
-    │
-agents/base.py                   ← BaseAgent: tool-call loop, message management
-    │
-roles/*.py                       ← System prompts (persona, capabilities, style)
-    │
-core/tool_registry.py            ← ToolRegistry: define, convert, execute tools
-    │
-┌───────────────────┬───────────────────┬─────────────────────────┐
-│ core/filesystem_tools.py │ core/mcp_bridge.py  │ core/excel_tools.py     │
-│ (read/write files)       │ (GitHub integration) │ (Excel test plans)      │
-└───────────────────┴───────────────────┴─────────────────────────┘
+Entry Points
+├── shell.py          ← python shell.py  — terminal interface
+└── web.py            ← python web.py   — starts FastAPI (port 8000)
+    └── frontend/     ← npm run dev      — Next.js UI (port 3000)
+
+                    ┌───────────────────────────────────┐
+                    │         Shared Core                │
+                    │                                   │
+shell/main.py       │  core/orchestrator.py             │
+(CLI: Rich panels)  │  core/pipeline.py                 │
+                    │  agents/{claude,gpt,gemini}        │
+web/routers/        │  agents/base.py                   │
+(HTTP: SSE stream)  │  roles/*.py                       │
+                    │  core/tool_registry.py             │
+                    │  core/filesystem_tools.py          │
+                    │  core/mcp_bridge.py                │
+                    └───────────────────────────────────┘
+
+web/services/
+├── runner.py           ← Runs orchestrator in thread pool, emits SSE events
+├── event_bus.py        ← queue.Queue → async SSE generator
+├── observable_registry.py  ← Intercepts tool calls → SSE events
+└── session_manager.py  ← session_id → EventBus mapping
 ```
 
 ### Design Patterns
@@ -639,22 +819,33 @@ core/tool_registry.py            ← ToolRegistry: define, convert, execute tool
 - **Template Method** — `BaseAgent` defines the chat/tool loop; providers implement `_send_request()`
 - **Factory** — `AgentFactory.create_by_role()` maps roles to providers and models
 - **Strategy** — Each provider's `_send_request()` handles API differences
+- **Observer** — `ObservableToolRegistry` fires callbacks on every tool call for SSE streaming
 
-### Request Flow
+### CLI Request Flow
 
 ```
 1. You type:  @senior design a cache layer
 2. Shell:     Parse @mention → Role.SENIOR_DEV
-3. Shell:     Call orchestrator.ask(Role.SENIOR_DEV, "design a cache layer")
-4. Orch:      Get/create agent for role (factory if first use, cached after)
+3. Shell:     orchestrator.ask(Role.SENIOR_DEV, "design a cache layer")
+4. Orch:      Get/create agent for role (cached after first use)
 5. Orch:      Build tool registry (filesystem + github + excel per role)
-6. Orch:      Call agent.chat(prompt, tool_registry)
-7. Agent:     Convert messages to provider format
-8. Agent:     Send to API with tool definitions
-9. API:       Returns text or tool_use request
-10. Agent:    If tool_use → execute tool → send result back → loop (max 25x)
-11. Agent:    Return final AgentResponse
-12. Shell:    Display in rich panel with model/token info
+6. Agent:     Send to API with tool definitions
+7. API:       Returns text or tool_use request
+8. Agent:     If tool_use → execute tool → send result → loop (max 25x)
+9. Shell:     Display in Rich panel with model/token info
+```
+
+### Web Request Flow
+
+```
+1. Browser:   POST /api/chat {type:"stage", stage:"planning_discussion", context:{...}}
+2. Backend:   Create EventBus + session_id, submit to ThreadPoolExecutor
+3. Browser:   GET /api/chat/{session_id}/stream  (EventSource)
+4. Thread:    Create Orchestrator, patch _ask_with_limits to emit agent_start/done
+5. Thread:    Wrap tool registries with ObservableToolRegistry → emits tool_call/result
+6. Thread:    Run stage → events flow through EventBus queue → SSE stream
+7. Frontend:  useSSE hook → processEvent() → Zustand store → React re-renders
+8. UI:        Agent cards appear, tool calls expand, files animate in on the right
 ```
 
 ---
@@ -698,13 +889,11 @@ ROLE_PROVIDERS[Role.DEVOPS] = Provider.OPENAI
 devops_model: str = "gpt-5.2-2025-12-11"
 ```
 
-4. **Add model to factory** — update `_resolve_model()` in `agents/factory.py`:
+4. **Add mention alias** — `shell/constants.py`:
 
 ```python
-model_map = {
-    # ... existing ...
-    Role.DEVOPS: settings.devops_model,
-}
+MENTION_ALIASES["@devops"] = Role.DEVOPS
+MENTION_ALIASES["@ops"] = Role.DEVOPS
 ```
 
 5. **Import the role** — `roles/__init__.py`:
@@ -713,14 +902,7 @@ model_map = {
 from . import devops
 ```
 
-6. **Add mention alias** — `shell/constants.py`:
-
-```python
-MENTION_ALIASES["@devops"] = Role.DEVOPS
-MENTION_ALIASES["@ops"] = Role.DEVOPS
-```
-
-7. **Add to tools** — `core/orchestrator.py`:
+6. **Add to filesystem tools** — `core/orchestrator.py`:
 
 ```python
 _FS_TOOL_ROLES = {... Role.DEVOPS}
@@ -732,17 +914,36 @@ _FS_TOOL_ROLES = {... Role.DEVOPS}
 # In core/orchestrator.py → _register_default_workflows()
 self.register_workflow("deploy", [
     WorkflowStep(Role.SENIOR_DEV, "Plan deployment for:\n\n{requirement}"),
-    WorkflowStep(Role.DEVOPS, "Create CI/CD pipeline.", depends_on=["step_0_senior_dev"]),
-    WorkflowStep(Role.QA, "Create smoke tests.", depends_on=["step_1_devops"]),
+    WorkflowStep(Role.CODER, "Create CI/CD pipeline.", depends_on=["step_0_senior_dev"]),
+    WorkflowStep(Role.QA, "Create smoke tests.", depends_on=["step_1_coder"]),
 ])
 ```
 
 Then add `"deploy"` to `WORKFLOWS` in `shell/constants.py`.
 
+### Adding a New Stage
+
+Follow the pattern of `_run_planning_discussion_stage` in `core/orchestrator.py`:
+
+```python
+def _run_my_stage(self, context: Dict[str, str]) -> WorkflowResult:
+    topic = context.get("requirement") or context.get("topic") or ""
+    turn_plan = [
+        (Role.BA, "Your instruction for BA", 700),
+        (Role.SENIOR_DEV, "Your instruction for Senior", 750),
+    ]
+    # ... loop + synthesis + return WorkflowResult
+```
+
+Then:
+1. Add `elif stage_name == "my_stage": return self._run_my_stage(context)` in `run_stage()`
+2. Call `register_stage("my_stage", "Description", status="active")` in `_register_default_stages()`
+3. Add an `elif` in `shell/main.py → handle_stage()` to prompt for the topic
+
 ### Adding a New AI Provider
 
 1. Create `agents/new_provider_agent.py` extending `BaseAgent`
-2. Implement: `_initialize_client()`, `_send_request()`, `_to_*_messages()` 
+2. Implement: `_initialize_client()`, `_send_request()`, `_to_*_messages()`
 3. Add `Provider.NEW_PROVIDER` enum value
 4. Add to `PROVIDER_AGENTS` dict in `agents/factory.py`
 5. Add API key field in `config/settings.py`
@@ -777,13 +978,30 @@ Check `clai> config` — make sure your `.env` file is in the CLAI project root 
 
 ### Gemini model errors
 
-Gemini requires strict user/model message alternation. If you see errors about message ordering, it's likely a bug in message conversion — file an issue.
+Gemini requires strict user/model message alternation. If you see errors about message ordering, it's a message conversion issue — check `agents/gemini_agent.py`.
 
 ### Tool calls not working
 
 - Run `clai> tools <role>` to verify tools are registered
 - Ensure `MCP_ENABLED=true` in `.env`
 - Check logs for tool execution errors (set `LOG_LEVEL=DEBUG`)
+
+### Web app — frontend can't connect to backend
+
+- Ensure the backend is running: `python web.py` (port 8000)
+- Check CORS — the backend allows `localhost:3000` by default
+- Check browser console for EventSource errors
+- Verify `BASE` URL in `frontend/src/lib/api.ts` matches your backend port
+
+### Web app — files don't appear in the panel
+
+- Files only appear when agents call `write_file` or `append_file`
+- Not all stages or workflows produce file writes — workflows like `feature` and `full_feature` do; planning stages do not
+- Check the browser console for SSE event logs
+
+### Stage shows as "placeholder"
+
+All 5 stages are now active. If a stage still shows as placeholder, it may be a cached import. Restart the shell or web server.
 
 ---
 
@@ -809,15 +1027,17 @@ python cli.py config
 python cli.py chat senior_dev
 ```
 
-### CLI vs Shell
+### CLI vs Shell vs Web
 
-| Feature | CLI (`cli.py`) | Shell (`shell.py`) |
-|---------|----------------|-------------------|
-| Single questions | ✓ | ✓ |
-| @mentions | ✗ | ✓ |
-| File I/O (`>` / `<`) | `--file` flag | ✓ |
-| Workflows | 4 built-in | All 8 |
-| Stages | ✓ | ✓ |
-| Kickoff | ✗ | ✓ |
-| Rich UI | Basic | Full panels + progress |
-| Scripting | ✓ (piping) | ✗ |
+| Feature | CLI (`cli.py`) | Shell (`shell.py`) | Web (`web.py`) |
+|---------|----------------|-------------------|----------------|
+| Single questions | ✓ | ✓ | Via stage/workflow |
+| @mentions | ✗ | ✓ | ✗ |
+| File I/O (`>` / `<`) | `--file` flag | ✓ | Files panel |
+| Workflows | 4 built-in | All 8 | All 8 |
+| Stages | ✓ | All 5 | All 5 |
+| Kickoff | ✗ | ✓ | ✓ |
+| Real-time streaming | ✗ | ✗ | ✓ (SSE) |
+| Live file panel | ✗ | ✗ | ✓ |
+| Rich UI | Basic | Full panels | Browser UI |
+| Scripting / piping | ✓ | ✗ | REST API |

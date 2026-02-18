@@ -18,7 +18,7 @@ _FS_TOOL_ROLES = {Role.SENIOR_DEV, Role.CODER, Role.CODER_2, Role.QA, Role.BA, R
 
 
 class Orchestrator:
-    def __init__(self, verbose: bool = False):
+    def __init__(self, verbose: bool = False, workspace_root: Optional[str] = None):
         self.verbose = verbose
         self._agents: Dict[Role, BaseAgent] = {}
         self._workflows: Dict[str, List[WorkflowStep]] = {}
@@ -30,7 +30,10 @@ class Orchestrator:
         self._fs: Optional[FileSystemTools] = None
         self._fs_registry: Optional[ToolRegistry] = None
         if self._mcp_enabled:
-            self._fs = get_filesystem()
+            if workspace_root:
+                self._fs = FileSystemTools(workspace_root=workspace_root)
+            else:
+                self._fs = get_filesystem()
             self._fs_registry = build_filesystem_registry(self._fs)
 
         # GitHub MCP client (lazy — connected on first use)
@@ -72,19 +75,28 @@ class Orchestrator:
 
         Returns True if GitHub tools are available, False otherwise.
         """
-        if self._github_mcp_initialized:
-            return bool(self._github_registries)
-        self._github_mcp_initialized = True
+        if self._github_registries:
+            return True
 
         settings = self._github_settings
         if settings is None:
+            self._github_mcp_initialized = False
             return False
 
         try:
             self._init_github_mcp(settings)
+            self._github_mcp_initialized = True
             return True
         except Exception as e:
             logger.warning(f"GitHub MCP initialization failed: {e}")
+            self._github_mcp_initialized = False
+            self._github_registries.clear()
+            if self._github_client is not None:
+                try:
+                    self._github_client.disconnect_sync()
+                except Exception:
+                    pass
+            self._github_client = None
             return False
 
     def _init_github_mcp(self, settings) -> None:
@@ -348,6 +360,14 @@ Your response rules:
 
         if stage_name == "planning_discussion":
             return self._run_planning_discussion_stage(context)
+        elif stage_name == "architecture_alignment":
+            return self._run_architecture_alignment_stage(context)
+        elif stage_name == "implementation_breakdown":
+            return self._run_implementation_breakdown_stage(context)
+        elif stage_name == "verification_hardening":
+            return self._run_verification_hardening_stage(context)
+        elif stage_name == "release_handoff":
+            return self._run_release_handoff_stage(context)
 
         return self._run_placeholder_stage(stage_name)
     
@@ -509,6 +529,506 @@ Rules:
             duration=duration,
         )
 
+    def _run_architecture_alignment_stage(self, context: Dict[str, str]) -> WorkflowResult:
+        topic = (
+            context.get("requirement")
+            or context.get("project_description")
+            or context.get("topic")
+            or context.get("prompt")
+            or ""
+        ).strip()
+        if not topic:
+            return WorkflowResult(
+                status=WorkflowStatus.FAILED,
+                steps_completed=0,
+                errors=["Missing stage context. Provide a requirement or topic."],
+            )
+
+        start_time = datetime.now()
+        outputs: Dict[str, AgentResponse] = {}
+        turns: List[Tuple[Role, AgentResponse]] = []
+
+        turn_plan: List[Tuple[Role, str, int]] = [
+            (
+                Role.SENIOR_DEV,
+                "Propose and justify the architecture: key components, data flow, tech stack, and main tradeoffs.",
+                750,
+            ),
+            (
+                Role.CODER,
+                "Assess implementation feasibility, delivery risk, and dependency concerns from a developer's perspective.",
+                700,
+            ),
+            (
+                Role.CODER_2,
+                "Offer alternative architectural approaches and flag integration or cross-cutting concerns.",
+                650,
+            ),
+            (
+                Role.QA,
+                "Review the architecture for testability, observability gaps, and risk surface.",
+                650,
+            ),
+            (
+                Role.REVIEWER,
+                "Evaluate code quality standards, anti-patterns, and long-term maintainability of the proposed design.",
+                650,
+            ),
+        ]
+
+        try:
+            for i, (role, instruction, token_budget) in enumerate(turn_plan):
+                prior_discussion = self._build_turn_context(turns)
+                turn_prompt = f"""You are in stage: architecture_alignment.
+Topic / Requirement:
+{topic}
+
+Team roster and responsibilities:
+- senior_dev: architecture decisions, component design, tech-stack selection.
+- coder: implementation feasibility, delivery risk, dependency management.
+- coder_2: alternative approaches, integration concerns, cross-cutting patterns.
+- qa: testability, observability, quality gates, risk surface.
+- reviewer: code quality standards, anti-patterns, maintainability.
+
+Prior discussion:
+{prior_discussion}
+
+Your turn objective:
+{instruction}
+
+Rules:
+- Keep it under 180 words.
+- Use exactly these headings: Architecture Position, Feedback to Prior Roles, Concrete Decision.
+- If prior discussion exists, directly reference at least one earlier role.
+- No implementation code. Architecture planning only.
+"""
+                response = self._ask_with_limits(
+                    role=role,
+                    prompt=turn_prompt,
+                    max_tokens=token_budget,
+                    temperature=0.5,
+                )
+                outputs[f"step_{i}_{role.value}"] = response
+                turns.append((role, response))
+
+            synthesis_prompt = f"""You are finalizing stage: architecture_alignment.
+Topic:
+{topic}
+
+Full team discussion:
+{self._build_turn_context(turns, max_chars_per_turn=1200)}
+
+Provide a compact architectural alignment summary with these headings only:
+1) Agreed Architecture
+2) Key Technical Decisions
+3) Risk Register
+4) Definition of Done
+
+Rules:
+- Keep total response under 220 words.
+- No code.
+"""
+            final_response = self._ask_with_limits(
+                role=Role.SENIOR_DEV,
+                prompt=synthesis_prompt,
+                max_tokens=780,
+                temperature=0.4,
+            )
+            outputs[f"step_{len(turn_plan)}_senior_dev"] = final_response
+
+        except Exception as e:
+            duration = (datetime.now() - start_time).total_seconds()
+            return WorkflowResult(
+                status=WorkflowStatus.FAILED,
+                steps_completed=len(outputs),
+                outputs=outputs,
+                errors=[f"architecture_alignment failed: {str(e)}"],
+                duration=duration,
+            )
+
+        duration = (datetime.now() - start_time).total_seconds()
+        return WorkflowResult(
+            status=WorkflowStatus.COMPLETED,
+            steps_completed=len(outputs),
+            outputs=outputs,
+            duration=duration,
+        )
+
+    def _run_implementation_breakdown_stage(self, context: Dict[str, str]) -> WorkflowResult:
+        topic = (
+            context.get("requirement")
+            or context.get("project_description")
+            or context.get("topic")
+            or context.get("prompt")
+            or ""
+        ).strip()
+        if not topic:
+            return WorkflowResult(
+                status=WorkflowStatus.FAILED,
+                steps_completed=0,
+                errors=["Missing stage context. Provide a requirement or topic."],
+            )
+
+        start_time = datetime.now()
+        outputs: Dict[str, AgentResponse] = {}
+        turns: List[Tuple[Role, AgentResponse]] = []
+
+        turn_plan: List[Tuple[Role, str, int]] = [
+            (
+                Role.BA,
+                "Break the requirement into discrete user stories and tasks with clear acceptance criteria and priority ordering.",
+                700,
+            ),
+            (
+                Role.SENIOR_DEV,
+                "Size the tasks, establish sequencing and dependencies, and propose a sprint plan.",
+                750,
+            ),
+            (
+                Role.CODER,
+                "Commit to specific delivery slices, call out implementation blockers, and clarify ownership.",
+                700,
+            ),
+            (
+                Role.CODER_2,
+                "Identify parallel workstreams, alternative task groupings, and integration checkpoints.",
+                650,
+            ),
+            (
+                Role.QA,
+                "Define test tasks tied to each delivery slice and specify quality gates per milestone.",
+                650,
+            ),
+        ]
+
+        try:
+            for i, (role, instruction, token_budget) in enumerate(turn_plan):
+                prior_discussion = self._build_turn_context(turns)
+                turn_prompt = f"""You are in stage: implementation_breakdown.
+Requirement:
+{topic}
+
+Team roster and responsibilities:
+- ba: task clarity, acceptance criteria per task, priority ordering.
+- senior_dev: task sizing, sequencing, dependencies, sprint planning.
+- coder: delivery slices, blocker identification, task commitment.
+- coder_2: parallel workstreams, alternative task groupings, integration checkpoints.
+- qa: test tasks per delivery slice, quality gates per milestone.
+
+Prior discussion:
+{prior_discussion}
+
+Your turn objective:
+{instruction}
+
+Rules:
+- Keep it under 180 words.
+- Use exactly these headings: Task Breakdown, Sequencing/Dependencies, Ownership.
+- If prior discussion exists, directly reference at least one earlier role.
+- No code. Task planning only.
+"""
+                response = self._ask_with_limits(
+                    role=role,
+                    prompt=turn_prompt,
+                    max_tokens=token_budget,
+                    temperature=0.5,
+                )
+                outputs[f"step_{i}_{role.value}"] = response
+                turns.append((role, response))
+
+            synthesis_prompt = f"""You are finalizing stage: implementation_breakdown.
+Requirement:
+{topic}
+
+Full team discussion:
+{self._build_turn_context(turns, max_chars_per_turn=1200)}
+
+Provide a compact task breakdown summary with these headings only:
+1) Sprint 1 Deliverables
+2) Task Ownership Matrix
+3) Dependencies & Blockers
+4) Milestone Criteria
+
+Rules:
+- Keep total response under 220 words.
+- No code.
+"""
+            final_response = self._ask_with_limits(
+                role=Role.BA,
+                prompt=synthesis_prompt,
+                max_tokens=780,
+                temperature=0.4,
+            )
+            outputs[f"step_{len(turn_plan)}_ba"] = final_response
+
+        except Exception as e:
+            duration = (datetime.now() - start_time).total_seconds()
+            return WorkflowResult(
+                status=WorkflowStatus.FAILED,
+                steps_completed=len(outputs),
+                outputs=outputs,
+                errors=[f"implementation_breakdown failed: {str(e)}"],
+                duration=duration,
+            )
+
+        duration = (datetime.now() - start_time).total_seconds()
+        return WorkflowResult(
+            status=WorkflowStatus.COMPLETED,
+            steps_completed=len(outputs),
+            outputs=outputs,
+            duration=duration,
+        )
+
+    def _run_verification_hardening_stage(self, context: Dict[str, str]) -> WorkflowResult:
+        topic = (
+            context.get("requirement")
+            or context.get("project_description")
+            or context.get("topic")
+            or context.get("prompt")
+            or ""
+        ).strip()
+        if not topic:
+            return WorkflowResult(
+                status=WorkflowStatus.FAILED,
+                steps_completed=0,
+                errors=["Missing stage context. Provide a feature or system to verify."],
+            )
+
+        start_time = datetime.now()
+        outputs: Dict[str, AgentResponse] = {}
+        turns: List[Tuple[Role, AgentResponse]] = []
+
+        turn_plan: List[Tuple[Role, str, int]] = [
+            (
+                Role.QA,
+                "Define a comprehensive test strategy: test pyramid, edge cases, regression approach, and risk areas.",
+                750,
+            ),
+            (
+                Role.SENIOR_DEV,
+                "Identify performance benchmarks, security review points, and observability requirements.",
+                700,
+            ),
+            (
+                Role.CODER,
+                "Specify unit test coverage targets and assess testability of the current implementation.",
+                650,
+            ),
+            (
+                Role.CODER_2,
+                "Propose integration test patterns, contract testing strategy, and test data management.",
+                650,
+            ),
+            (
+                Role.REVIEWER,
+                "Define code quality gates, release criteria, and the definition of 'shippable'.",
+                700,
+            ),
+        ]
+
+        try:
+            for i, (role, instruction, token_budget) in enumerate(turn_plan):
+                prior_discussion = self._build_turn_context(turns)
+                turn_prompt = f"""You are in stage: verification_hardening.
+Feature / System under review:
+{topic}
+
+Team roster and responsibilities:
+- qa: test strategy, test pyramid, edge cases, regression approach.
+- senior_dev: performance benchmarks, security review, observability.
+- coder: unit test coverage targets, testability of implementation.
+- coder_2: integration test patterns, contract testing, test data strategy.
+- reviewer: code quality gates, release criteria, definition of shippable.
+
+Prior discussion:
+{prior_discussion}
+
+Your turn objective:
+{instruction}
+
+Rules:
+- Keep it under 180 words.
+- Use exactly these headings: Testing Strategy, Risk Coverage, Quality Gate.
+- If prior discussion exists, directly reference at least one earlier role.
+- No implementation code. Verification planning only.
+"""
+                response = self._ask_with_limits(
+                    role=role,
+                    prompt=turn_prompt,
+                    max_tokens=token_budget,
+                    temperature=0.5,
+                )
+                outputs[f"step_{i}_{role.value}"] = response
+                turns.append((role, response))
+
+            synthesis_prompt = f"""You are finalizing stage: verification_hardening.
+Feature / System:
+{topic}
+
+Full team discussion:
+{self._build_turn_context(turns, max_chars_per_turn=1200)}
+
+Provide a compact verification summary with these headings only:
+1) Test Coverage Plan
+2) Quality Gates
+3) Edge Cases & Risk Areas
+4) Release Readiness Criteria
+
+Rules:
+- Keep total response under 220 words.
+- No code.
+"""
+            final_response = self._ask_with_limits(
+                role=Role.QA,
+                prompt=synthesis_prompt,
+                max_tokens=780,
+                temperature=0.4,
+            )
+            outputs[f"step_{len(turn_plan)}_qa"] = final_response
+
+        except Exception as e:
+            duration = (datetime.now() - start_time).total_seconds()
+            return WorkflowResult(
+                status=WorkflowStatus.FAILED,
+                steps_completed=len(outputs),
+                outputs=outputs,
+                errors=[f"verification_hardening failed: {str(e)}"],
+                duration=duration,
+            )
+
+        duration = (datetime.now() - start_time).total_seconds()
+        return WorkflowResult(
+            status=WorkflowStatus.COMPLETED,
+            steps_completed=len(outputs),
+            outputs=outputs,
+            duration=duration,
+        )
+
+    def _run_release_handoff_stage(self, context: Dict[str, str]) -> WorkflowResult:
+        topic = (
+            context.get("requirement")
+            or context.get("project_description")
+            or context.get("topic")
+            or context.get("prompt")
+            or ""
+        ).strip()
+        if not topic:
+            return WorkflowResult(
+                status=WorkflowStatus.FAILED,
+                steps_completed=0,
+                errors=["Missing stage context. Provide a release scope or description."],
+            )
+
+        start_time = datetime.now()
+        outputs: Dict[str, AgentResponse] = {}
+        turns: List[Tuple[Role, AgentResponse]] = []
+
+        turn_plan: List[Tuple[Role, str, int]] = [
+            (
+                Role.SENIOR_DEV,
+                "Present the release plan: go/no-go criteria, technical checklist, rollback strategy, and monitoring approach.",
+                750,
+            ),
+            (
+                Role.REVIEWER,
+                "Provide code freeze sign-off status, final review summary, and known technical debt.",
+                650,
+            ),
+            (
+                Role.QA,
+                "Report final test results, outstanding defects, and regression status sign-off.",
+                700,
+            ),
+            (
+                Role.BA,
+                "Confirm stakeholder acceptance, user communication plan, and business sign-off criteria.",
+                650,
+            ),
+            (
+                Role.CODER,
+                "Detail the deployment runbook, environment setup steps, and post-deploy verification checklist.",
+                700,
+            ),
+        ]
+
+        try:
+            for i, (role, instruction, token_budget) in enumerate(turn_plan):
+                prior_discussion = self._build_turn_context(turns)
+                turn_prompt = f"""You are in stage: release_handoff.
+Release scope:
+{topic}
+
+Team roster and responsibilities:
+- senior_dev: release plan, go/no-go criteria, rollback strategy, monitoring.
+- reviewer: code freeze sign-off, final review status, known technical debt.
+- qa: final test results sign-off, outstanding defects, regression status.
+- ba: stakeholder acceptance, user communication plan, business sign-off.
+- coder: deployment runbook, environment setup, post-deploy verification steps.
+
+Prior discussion:
+{prior_discussion}
+
+Your turn objective:
+{instruction}
+
+Rules:
+- Keep it under 180 words.
+- Use exactly these headings: Release Position, Checklist Items, Sign-off Criteria.
+- If prior discussion exists, directly reference at least one earlier role.
+- No code. Release planning only.
+"""
+                response = self._ask_with_limits(
+                    role=role,
+                    prompt=turn_prompt,
+                    max_tokens=token_budget,
+                    temperature=0.5,
+                )
+                outputs[f"step_{i}_{role.value}"] = response
+                turns.append((role, response))
+
+            synthesis_prompt = f"""You are finalizing stage: release_handoff.
+Release scope:
+{topic}
+
+Full team discussion:
+{self._build_turn_context(turns, max_chars_per_turn=1200)}
+
+Provide a compact release summary with these headings only:
+1) Go / No-Go Decision
+2) Release Checklist
+3) Rollback Plan
+4) Post-Release Monitoring
+
+Rules:
+- Keep total response under 220 words.
+- No code.
+"""
+            final_response = self._ask_with_limits(
+                role=Role.SENIOR_DEV,
+                prompt=synthesis_prompt,
+                max_tokens=800,
+                temperature=0.4,
+            )
+            outputs[f"step_{len(turn_plan)}_senior_dev"] = final_response
+
+        except Exception as e:
+            duration = (datetime.now() - start_time).total_seconds()
+            return WorkflowResult(
+                status=WorkflowStatus.FAILED,
+                steps_completed=len(outputs),
+                outputs=outputs,
+                errors=[f"release_handoff failed: {str(e)}"],
+                duration=duration,
+            )
+
+        duration = (datetime.now() - start_time).total_seconds()
+        return WorkflowResult(
+            status=WorkflowStatus.COMPLETED,
+            steps_completed=len(outputs),
+            outputs=outputs,
+            duration=duration,
+        )
+
     def _run_placeholder_stage(self, stage_name: str) -> WorkflowResult:
         details = self._stages.get(stage_name, {})
         description = details.get("description", "Placeholder stage")
@@ -630,16 +1150,20 @@ Rules:
         self.register_stage(
             "architecture_alignment",
             "Validate architecture decisions and tradeoffs before implementation.",
+            status="active",
         )
         self.register_stage(
             "implementation_breakdown",
             "Convert plan into concrete tasks, ownership, and sequencing.",
+            status="active",
         )
         self.register_stage(
             "verification_hardening",
             "Consolidate testing, edge cases, and quality gates before release.",
+            status="active",
         )
         self.register_stage(
             "release_handoff",
             "Prepare final release checklist, rollout plan, and rollback strategy.",
+            status="active",
         )

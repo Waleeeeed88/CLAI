@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #060b17;
+  --text: #d6e2f2;
+  --muted: #8b9cb8;
+  --card: #0f172a;
+  --border: #1e293b;
+}
+
+html, body, #__next {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+}
+
+* {
+  scroll-behavior: smooth;
+  box-sizing: border-box;
+}
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 99px; }
+* { scrollbar-width: thin; scrollbar-color: #334155 transparent; }
+
+::selection { background: rgba(34,211,238,0.25); }
+
+.prose { color: #b7c7de; line-height: 1.65; }
+.prose strong { color: #ebf2ff; }
+.prose h1,.prose h2,.prose h3,.prose h4 { color: #ebf2ff; margin-top: 0.8em; margin-bottom: 0.3em; }
+.prose code { background: #111827; color: #67e8f9; padding: 0.1em 0.3em; border-radius: 3px; font-size: 0.85em; }
+.prose pre { background: #0b1220 !important; border: 1px solid #1f2937; border-radius: 8px; padding: 0.8rem; }
+.prose pre code { background: transparent; color: #b7c7de; padding: 0; }
+.prose a { color: #67e8f9; }
+.prose blockquote { border-left-color: #334155; color: #90a1bb; }
+.prose p { color: #b7c7de; margin-top: 0.3em; margin-bottom: 0.3em; }
+.prose ul,.prose ol { padding-left: 1.2em; }
+.prose li { margin: 0.15em 0; }

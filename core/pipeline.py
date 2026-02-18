@@ -1,19 +1,11 @@
-"""Project Pipeline — orchestrates a full project lifecycle.
+"""Simple project pipeline with three phases.
 
-Runs a multi-phase pipeline that feels like managing an IT team:
-  1. Planning   — BA leads discussion, creates user stories
-  2. Setup      — Senior architects, repo + scaffolding created
-  3. Build      — Coders implement on branches, create PRs
-  4. Quality    — QA writes tests, creates Excel test plan, runs tests
-  5. Review     — Reviewer reviews PRs, posts feedback
-  6. Delivery   — Senior produces final summary, localhost instructions
-
-Usage::
-
-    from core.pipeline import ProjectPipeline
-    pipeline = ProjectPipeline(orchestrator)
-    pipeline.run("Build a task management API with auth")
+Flow:
+1. planning        - define stories, tasks, and issue backlog
+2. implementation  - build code and test assets (including Excel test plan)
+3. github_mcp      - sync issues to GitHub MCP or produce local fallback files
 """
+
 from __future__ import annotations
 
 import logging
@@ -28,8 +20,6 @@ from agents.factory import Role
 logger = logging.getLogger(__name__)
 
 
-# ── Data models ──────────────────────────────────────────────────────
-
 class PhaseStatus(Enum):
     PENDING = "pending"
     RUNNING = "running"
@@ -41,17 +31,19 @@ class PhaseStatus(Enum):
 @dataclass
 class PhaseResult:
     """Output of a single pipeline phase."""
+
     name: str
     status: PhaseStatus
     outputs: Dict[str, AgentResponse] = field(default_factory=dict)
-    artifacts: Dict[str, str] = field(default_factory=dict)  # e.g. {"repo_url": "..."}
+    artifacts: Dict[str, str] = field(default_factory=dict)
     errors: List[str] = field(default_factory=list)
     duration: float = 0.0
 
 
 @dataclass
 class PipelineResult:
-    """Output of the full project pipeline."""
+    """Output of the full pipeline."""
+
     project_name: str
     phases: Dict[str, PhaseResult] = field(default_factory=dict)
     total_duration: float = 0.0
@@ -72,21 +64,19 @@ class PipelineResult:
         return merged
 
 
-# ── Pipeline ─────────────────────────────────────────────────────────
-
 class ProjectPipeline:
-    """Multi-phase project pipeline that coordinates the full AI team.
+    """Simple multi-phase pipeline with planning, implementation, and GitHub sync."""
 
-    Args:
-        orchestrator: The ``Orchestrator`` instance (provides agents + tools).
-        on_phase_start: Optional callback ``(phase_name) -> None``.
-        on_step_done: Optional callback ``(phase_name, step_name, response) -> None``.
-        on_phase_done: Optional callback ``(PhaseResult) -> None``.
-    """
+    ALL_PHASES = ["planning", "implementation", "github_mcp"]
+    PHASE_DESCRIPTIONS: Dict[str, str] = {
+        "planning": "Plan scope and produce issue backlog.",
+        "implementation": "Build code and QA artifacts (including Excel test plan).",
+        "github_mcp": "Sync issues via GitHub MCP or create local fallback issue files.",
+    }
 
     def __init__(
         self,
-        orchestrator: Any,  # core.orchestrator.Orchestrator (avoid circular import)
+        orchestrator: Any,
         *,
         on_phase_start: Optional[Callable[[str], None]] = None,
         on_step_done: Optional[Callable[[str, str, AgentResponse], None]] = None,
@@ -97,46 +87,51 @@ class ProjectPipeline:
         self.on_step_done = on_step_done
         self.on_phase_done = on_phase_done
 
-    # ── public entry point ───────────────────────────────────────────
-
     def run(
         self,
         requirement: str,
         project_name: str = "",
         repo_owner: str = "",
         skip_github: bool = False,
+        selected_phases: Optional[List[str]] = None,
+        selected_files: Optional[List[str]] = None,
     ) -> PipelineResult:
-        """Execute the full project pipeline.
+        """Execute the three-phase pipeline."""
 
-        Args:
-            requirement: The project description / feature request.
-            project_name: Desired project/repo name (auto-generated if empty).
-            repo_owner: GitHub owner (user or org) for repo creation.
-            skip_github: If ``True``, skip GitHub operations (offline mode).
-        """
         result = PipelineResult(project_name=project_name or "project")
-
-        # Shared context that accumulates across phases
         ctx: Dict[str, str] = {
             "requirement": requirement,
-            "project_name": project_name,
+            "project_name": project_name or "project",
             "repo_owner": repo_owner,
         }
+        if selected_files:
+            cleaned = [p.strip() for p in selected_files if p and p.strip()]
+            if cleaned:
+                ctx["selected_files"] = "\n".join(f"- {p}" for p in cleaned)
 
-        has_github = (
-            not skip_github
-            and self.orch.github_configured
-        )
+        has_github = (not skip_github) and self.orch.github_available
         ctx["has_github"] = str(has_github)
+        ctx["issue_tracking_mode"] = "github_mcp" if has_github else "local_txt"
 
-        phases = [
+        all_phases = [
             ("planning", self._phase_planning),
-            ("setup", self._phase_setup),
-            ("build", self._phase_build),
-            ("quality", self._phase_quality),
-            ("review", self._phase_review),
-            ("delivery", self._phase_delivery),
+            ("implementation", self._phase_implementation),
+            ("github_mcp", self._phase_github_mcp),
         ]
+        if selected_phases is None:
+            phases = all_phases
+        else:
+            selected_set = set(selected_phases)
+            phases = [(name, fn) for name, fn in all_phases if name in selected_set]
+            if not phases:
+                result.status = PhaseStatus.FAILED
+                result.total_duration = 0.0
+                result.phases["selection"] = PhaseResult(
+                    name="selection",
+                    status=PhaseStatus.FAILED,
+                    errors=["No valid phases selected. Choose at least one phase."],
+                )
+                return result
 
         t0 = time.time()
         for phase_name, phase_fn in phases:
@@ -146,7 +141,7 @@ class ProjectPipeline:
             try:
                 phase_result = phase_fn(ctx, has_github)
             except Exception as exc:
-                logger.error(f"Phase {phase_name} failed: {exc}", exc_info=True)
+                logger.error("Phase %s failed: %s", phase_name, exc, exc_info=True)
                 phase_result = PhaseResult(
                     name=phase_name,
                     status=PhaseStatus.FAILED,
@@ -158,7 +153,6 @@ class ProjectPipeline:
             if self.on_phase_done:
                 self.on_phase_done(phase_result)
 
-            # Feed phase outputs into shared context for later phases
             for step_key, resp in phase_result.outputs.items():
                 ctx[step_key] = resp.content
             for art_key, art_val in phase_result.artifacts.items():
@@ -173,8 +167,6 @@ class ProjectPipeline:
             result.status = PhaseStatus.COMPLETED
         return result
 
-    # ── helper: ask an agent inside a phase ──────────────────────────
-
     def _ask(
         self,
         phase_name: str,
@@ -182,287 +174,187 @@ class ProjectPipeline:
         role: Role,
         prompt: str,
     ) -> AgentResponse:
-        """Ask an agent and fire the on_step_done callback."""
-        logger.info(f"[{phase_name}] {step_name}: asking {role.value}")
+        """Ask one role for one step and emit callback."""
+
+        logger.info("[%s] %s: asking %s", phase_name, step_name, role.value)
         response = self.orch.ask(role, prompt)
         if self.on_step_done:
             self.on_step_done(phase_name, step_name, response)
         return response
 
-    # ── Phase 1: Planning ────────────────────────────────────────────
-
     def _phase_planning(self, ctx: Dict[str, str], has_github: bool) -> PhaseResult:
-        """BA analyses requirements, team discusses, BA finalises stories."""
+        """Create plan and issue backlog."""
+
         t0 = time.time()
         outputs: Dict[str, AgentResponse] = {}
+        selected_files = ctx.get("selected_files", "none provided")
+        issue_mode = "GitHub MCP issues" if has_github else "local text files"
 
-        # 1a — BA creates user stories + acceptance criteria
-        ba_prompt = f"""You are starting a new project. Analyse the following requirement and produce:
-
-1. **Project Overview** — one paragraph summary
-2. **User Stories** — numbered list, each with:
-   - Title
-   - As a / I want / So that
-   - Acceptance Criteria (Given/When/Then)
-   - Priority (P0/P1/P2)
-   - Estimated complexity (S/M/L/XL)
-3. **Non-Functional Requirements** — performance, security, scalability
-4. **Open Questions** — anything that needs clarification
-
-{"Use the `create_repository` tool to create a GitHub repo named " + repr(ctx.get("project_name", "")) + " if a name was provided, then use `create_issue` to create a GitHub issue for EACH user story with labels." if has_github else "List all stories in structured format."}
+        planning_prompt = f"""You are the planning lead for project "{ctx.get('project_name', 'project')}".
 
 Requirement:
-{ctx['requirement']}"""
+{ctx.get('requirement', '')}
 
-        resp = self._ask("planning", "ba_stories", Role.BA, ba_prompt)
-        outputs["ba_stories"] = resp
+Selected files from the user (optional context):
+{selected_files}
 
-        # 1b — Team roundtable discussion
-        discussion = self.orch.consult_team_discussion(
-            f"Project requirement:\n{ctx['requirement']}\n\nBA's analysis:\n{resp.content[:2000]}",
-            roles=[Role.QA, Role.SENIOR_DEV, Role.CODER, Role.CODER_2],
-        )
-        for role, dresp in discussion.items():
-            key = f"discuss_{role.value}"
-            outputs[key] = dresp
+Produce a practical planning package with these actions:
+1. Use write_file to create planning/plan.md with:
+   - scope summary
+   - user stories with acceptance criteria
+   - implementation slices
+   - risks and assumptions
+2. Use write_file to create planning/issues.txt with issue backlog in this format:
+   ISSUE-001 | title | priority | owner | acceptance criteria
+3. Use write_file to create planning/implementation_tasks.txt with clear build tasks.
+4. Mention that issue tracking mode is: {issue_mode}
+
+Rules:
+- Keep outputs execution-oriented and concise.
+- Do not skip file creation.
+"""
+        plan_resp = self._ask("planning", "ba_planning_package", Role.BA, planning_prompt)
+        outputs["ba_planning_package"] = plan_resp
 
         return PhaseResult(
             name="planning",
             status=PhaseStatus.COMPLETED,
             outputs=outputs,
+            artifacts={"issue_tracking_mode": ctx["issue_tracking_mode"]},
             duration=time.time() - t0,
         )
 
-    # ── Phase 2: Setup ───────────────────────────────────────────────
+    def _phase_implementation(self, ctx: Dict[str, str], has_github: bool) -> PhaseResult:
+        """Implement code and QA artifacts."""
 
-    def _phase_setup(self, ctx: Dict[str, str], has_github: bool) -> PhaseResult:
-        """Senior Dev designs architecture and creates project scaffolding."""
         t0 = time.time()
         outputs: Dict[str, AgentResponse] = {}
+        planning_summary = ctx.get("ba_planning_package", "")[:3000]
 
-        prior_ba = ctx.get("ba_stories", "")[:3000]
-        prior_discussion = "\n".join(
-            f"[{k}]: {v[:600]}" for k, v in ctx.items() if k.startswith("discuss_")
+        implementation_prompt = f"""You are implementing project "{ctx.get('project_name', 'project')}".
+
+Planning summary:
+{planning_summary}
+
+Requirement:
+{ctx.get('requirement', '')}
+
+Do all of the following:
+1. Use get_tree and read_file to inspect existing files.
+2. Implement required source files with write_file.
+3. Update or create README/run instructions if needed.
+4. Use write_file to create implementation/implementation_summary.md listing what was built and what's pending.
+{"5. If GitHub MCP tools are available, prepare branch and PR notes in implementation/github_notes.md." if has_github else ""}
+
+Rules:
+- Write real code and concrete files.
+- Keep architecture aligned with planning artifacts.
+"""
+        impl_resp = self._ask(
+            "implementation",
+            "coder_implementation",
+            Role.CODER,
+            implementation_prompt,
         )
+        outputs["coder_implementation"] = impl_resp
 
-        # 2a — Senior Dev: architecture document
-        arch_prompt = f"""Based on the BA's analysis and team discussion, design the full project architecture.
+        qa_prompt = f"""You are QA for project "{ctx.get('project_name', 'project')}".
 
-**Deliverables (use your file tools to CREATE these files)**:
-1. Write `architecture.md` — system design, components, data model, API routes, tech stack
-2. Write `project_structure.md` — directory layout, file responsibilities
-3. Create the initial directory structure using `create_directory` and `write_file`:
-   - Source directories, config files, README.md, .gitignore, requirements.txt / package.json
-   - Include placeholder files so the structure is visible
+Implementation summary:
+{impl_resp.content[:2500]}
 
-{"4. Use `create_branch` to create a `develop` branch on the repo if GitHub tools are available." if has_github else ""}
+Do all of the following:
+1. Use write_file to create/update test files.
+2. Use create_test_plan_excel to create quality/test_plan.xlsx.
+   - file_path: quality/test_plan.xlsx
+   - suite_name: "<project name> core test plan"
+   - test_cases: JSON array with id, title, steps, expected_result, priority, status, category
+3. Use write_file to create quality/issues_for_tracking.txt with defects/risks found.
+4. If run_tests is available, run relevant tests and report outcomes in quality/test_results.md.
 
-Project name: {ctx.get('project_name', 'project')}
-
-BA Analysis:
-{prior_ba}
-
-Team Discussion:
-{prior_discussion}"""
-
-        resp = self._ask("setup", "senior_architecture", Role.SENIOR_DEV, arch_prompt)
-        outputs["senior_architecture"] = resp
+Rules:
+- Ensure the Excel tool call is actually executed.
+- Keep defects specific and actionable.
+"""
+        qa_resp = self._ask("implementation", "qa_quality_assets", Role.QA, qa_prompt)
+        outputs["qa_quality_assets"] = qa_resp
 
         return PhaseResult(
-            name="setup",
+            name="implementation",
             status=PhaseStatus.COMPLETED,
             outputs=outputs,
+            artifacts={"excel_test_plan": "quality/test_plan.xlsx"},
             duration=time.time() - t0,
         )
 
-    # ── Phase 3: Build ───────────────────────────────────────────────
+    def _phase_github_mcp(self, ctx: Dict[str, str], has_github: bool) -> PhaseResult:
+        """Sync issues to GitHub or generate local fallback tracking files."""
 
-    def _phase_build(self, ctx: Dict[str, str], has_github: bool) -> PhaseResult:
-        """Coders implement features, create branches + PRs."""
         t0 = time.time()
         outputs: Dict[str, AgentResponse] = {}
+        project_name = ctx.get("project_name", "project")
+        requirement = ctx.get("requirement", "")
+        plan_summary = ctx.get("ba_planning_package", "")[:2200]
+        repo_owner = ctx.get("repo_owner", "")
 
-        prior_arch = ctx.get("senior_architecture", "")[:3000]
-        prior_ba = ctx.get("ba_stories", "")[:2000]
+        if has_github:
+            github_prompt = f"""GitHub MCP is enabled for this project.
 
-        # 3a — Primary Coder: implement core features
-        coder_prompt = f"""Implement the project based on the architecture and user stories below.
+Project:
+- name: {project_name}
+- owner: {repo_owner or "(not provided, choose sensible default if needed)"}
 
-**Your tasks**:
-1. Use `read_file` and `get_tree` to see what the Senior Dev already created
-2. Use `write_file` to create ALL source code files — models, routes/handlers, services, utilities, config
-3. Write COMPLETE, WORKING code — not pseudocode or placeholders
-4. Include proper imports, error handling, logging
-5. Add docstrings and type hints
-{"6. Use `create_branch` to create a feature branch (e.g. `feature/core-implementation`), then use `push_files` or `create_or_update_file` to push your code, and `create_pull_request` to open a PR to `develop`" if has_github else ""}
+Requirement:
+{requirement}
 
-Architecture:
-{prior_arch}
+Planning summary:
+{plan_summary}
 
-User Stories:
-{prior_ba}"""
+Execute GitHub synchronization tasks using MCP tools:
+1. Ensure repository exists for this project (create_repository if needed).
+2. Create GitHub issues from planning/issues.txt content (or planning summary when needed).
+3. Label issues by priority/area where possible.
+4. Use write_file to create github/github_sync.md summarizing repo, issues, and next actions.
 
-        resp = self._ask("build", "coder_implementation", Role.CODER, coder_prompt)
-        outputs["coder_implementation"] = resp
+Rules:
+- Actually call GitHub tools; do not just describe what you would do.
+- If any GitHub action fails, record fallback instructions in github/github_sync.md.
+"""
+            gh_resp = self._ask("github_mcp", "ba_github_sync", Role.BA, github_prompt)
+            outputs["ba_github_sync"] = gh_resp
+            artifacts = {"issue_tracking_mode": "github_mcp"}
+        else:
+            fallback_prompt = f"""GitHub MCP is NOT available for this run.
 
-        # 3b — Secondary Coder: implement remaining features / complementary work
-        coder2_prompt = f"""You are the secondary coder. The primary coder has already started implementation.
+Project: {project_name}
+Requirement:
+{requirement}
 
-**Your tasks**:
-1. Use `get_tree` and `read_file` to see what exists already
-2. Implement any REMAINING features, utilities, middleware, or config that the primary coder missed
-3. Add any missing error handling, validation, or edge case coverage
-4. Create helper scripts (e.g. `run.sh`, `Makefile`, startup scripts)
-5. Write COMPLETE, WORKING code using `write_file`
-{"6. Create a branch (e.g. `feature/secondary-implementation`), push code, and open a PR to `develop`" if has_github else ""}
+Planning summary:
+{plan_summary}
 
-What the primary coder built:
-{resp.content[:2500]}
+Create local issue tracking artifacts using write_file:
+1. github/issues_local.txt - issues in a machine-friendly line format.
+2. github/issues_board.md - grouped by priority and status.
+3. github/github_mcp_fallback.md - exact steps to sync these issues to GitHub later.
 
-Architecture:
-{prior_arch}"""
-
-        resp2 = self._ask("build", "coder2_implementation", Role.CODER_2, coder2_prompt)
-        outputs["coder2_implementation"] = resp2
-
-        return PhaseResult(
-            name="build",
-            status=PhaseStatus.COMPLETED,
-            outputs=outputs,
-            duration=time.time() - t0,
-        )
-
-    # ── Phase 4: Quality ─────────────────────────────────────────────
-
-    def _phase_quality(self, ctx: Dict[str, str], has_github: bool) -> PhaseResult:
-        """QA writes tests, creates Excel test plan, runs tests."""
-        t0 = time.time()
-        outputs: Dict[str, AgentResponse] = {}
-
-        prior_ba = ctx.get("ba_stories", "")[:1500]
-        prior_coder = ctx.get("coder_implementation", "")[:2000]
-        prior_coder2 = ctx.get("coder2_implementation", "")[:1500]
-
-        qa_prompt = f"""You are the QA engineer. The coders have implemented the project. Your job:
-
-1. **Read the code** — use `get_tree` to see what was built, then `read_file` on key files
-2. **Write test files** — use `write_file` to create comprehensive test files:
-   - Unit tests for each module
-   - Integration tests for API endpoints / key flows
-   - Edge case tests for boundary conditions
-3. **Create Excel test plan** — use `create_test_plan_excel` with:
-   - test_plan_name: a descriptive name
-   - test_cases: list of dicts with keys: id, title, description, steps, expected_result, priority, status
-   - Cover ALL user stories from the BA
-4. **Run tests** — if `run_tests` is available, execute: pytest tests/ -v
-{"5. If any tests fail, create GitHub issues for the failures using `create_issue`" if has_github else ""}
-
-User Stories:
-{prior_ba}
-
-Coder 1 Output:
-{prior_coder}
-
-Coder 2 Output:
-{prior_coder2}"""
-
-        resp = self._ask("quality", "qa_testing", Role.QA, qa_prompt)
-        outputs["qa_testing"] = resp
+Rules:
+- Do not use GitHub tools.
+- Ensure files are complete and actionable for later migration to GitHub.
+"""
+            fallback_resp = self._ask(
+                "github_mcp",
+                "ba_local_issue_tracking",
+                Role.BA,
+                fallback_prompt,
+            )
+            outputs["ba_local_issue_tracking"] = fallback_resp
+            artifacts = {"issue_tracking_mode": "local_txt"}
 
         return PhaseResult(
-            name="quality",
+            name="github_mcp",
             status=PhaseStatus.COMPLETED,
             outputs=outputs,
-            duration=time.time() - t0,
-        )
-
-    # ── Phase 5: Review ──────────────────────────────────────────────
-
-    def _phase_review(self, ctx: Dict[str, str], has_github: bool) -> PhaseResult:
-        """Reviewer reviews code and PRs."""
-        t0 = time.time()
-        outputs: Dict[str, AgentResponse] = {}
-
-        prior_coder = ctx.get("coder_implementation", "")[:2000]
-        prior_qa = ctx.get("qa_testing", "")[:1500]
-
-        reviewer_prompt = f"""You are the Code Reviewer. The project has been implemented and tested.
-
-**Your tasks**:
-1. Use `get_tree` and `read_file` to examine the actual code files
-2. Review for:
-   - Code quality, readability, maintainability
-   - Security issues (injection, auth, validation)
-   - Error handling completeness
-   - Architecture adherence
-   - Test coverage assessment
-3. Produce a structured review:
-   - **Overall Grade**: A/B/C/D/F
-   - **Must Fix**: Critical issues
-   - **Should Fix**: Important improvements
-   - **Consider**: Nice-to-have suggestions
-   - **What's Good**: Positive observations
-{"4. If GitHub PR tools are available, use `list_pull_requests` to find open PRs, then `get_pull_request` to review them, and `create_pull_request_review` to post your review" if has_github else ""}
-
-Implementation Summary:
-{prior_coder}
-
-QA Results:
-{prior_qa}"""
-
-        resp = self._ask("review", "reviewer_feedback", Role.REVIEWER, reviewer_prompt)
-        outputs["reviewer_feedback"] = resp
-
-        return PhaseResult(
-            name="review",
-            status=PhaseStatus.COMPLETED,
-            outputs=outputs,
-            duration=time.time() - t0,
-        )
-
-    # ── Phase 6: Delivery ────────────────────────────────────────────
-
-    def _phase_delivery(self, ctx: Dict[str, str], has_github: bool) -> PhaseResult:
-        """Senior Dev produces final summary and run instructions."""
-        t0 = time.time()
-        outputs: Dict[str, AgentResponse] = {}
-
-        prior_arch = ctx.get("senior_architecture", "")[:1500]
-        prior_review = ctx.get("reviewer_feedback", "")[:1500]
-        prior_qa = ctx.get("qa_testing", "")[:1000]
-
-        delivery_prompt = f"""You are the Senior Dev wrapping up the project. Produce a **Delivery Summary**:
-
-1. **Project Status** — what was built, current state
-2. **Architecture Recap** — key design decisions made
-3. **How to Run Locally**:
-   - Step-by-step instructions to get it running on localhost
-   - Required environment variables
-   - Install commands
-   - Start command
-   - Expected output / test URL
-4. **GitHub Status** — repo URL, branches, open PRs, issues
-5. **Test Results** — summary from QA
-6. **Review Notes** — key findings from code review
-7. **Next Steps** — what should be done next
-
-Also use `write_file` to create a `DELIVERY.md` file with this information.
-
-Architecture:
-{prior_arch}
-
-Code Review:
-{prior_review}
-
-QA Results:
-{prior_qa}"""
-
-        resp = self._ask("delivery", "senior_delivery", Role.SENIOR_DEV, delivery_prompt)
-        outputs["senior_delivery"] = resp
-
-        return PhaseResult(
-            name="delivery",
-            status=PhaseStatus.COMPLETED,
-            outputs=outputs,
+            artifacts=artifacts,
             duration=time.time() - t0,
         )

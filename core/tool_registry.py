@@ -23,6 +23,7 @@ class ToolParameter:
     required: bool = False
     enum: Optional[List[str]] = None
     default: Optional[Any] = None
+    items: Optional[Dict[str, Any]] = None  # JSON Schema items for array types
 
 
 @dataclass
@@ -46,6 +47,8 @@ class ToolDefinition:
                 prop["description"] = p.description
             if p.enum is not None:
                 prop["enum"] = p.enum
+            if p.type == "array":
+                prop["items"] = p.items if p.items else {"type": "string"}
             properties[p.name] = prop
             if p.required:
                 required.append(p.name)
