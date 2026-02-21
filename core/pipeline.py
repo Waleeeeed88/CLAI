@@ -244,52 +244,257 @@ Rules:
         )
 
     def _phase_implementation(self, ctx: Dict[str, str], has_github: bool) -> PhaseResult:
-        """Implement code and QA artifacts."""
+        """Implement code and QA artifacts.
+
+        Flow:
+        1. BA       — break plan into implementation tasks + acceptance criteria
+        2. Senior   — architecture design, sequencing, coordination
+        3. QA       — upfront test strategy and quality gates
+        4. Coder    — primary implementation
+        5. Coder 2  — secondary/parallel implementation
+        6. Reviewer  — code review
+        7. BA + Senior — final sign-off review
+        """
 
         t0 = time.time()
         outputs: Dict[str, AgentResponse] = {}
+        project = ctx.get("project_name", "project")
+        requirement = ctx.get("requirement", "")
         planning_summary = self._clip(
             ctx.get("ba_planning_package", ""),
             MAX_PLANNING_SUMMARY_CHARS,
         )
 
-        implementation_prompt = f"""You are implementing project "{ctx.get('project_name', 'project')}".
+        # ── Step 1: BA — Implementation task breakdown ──────────────────
+        ba_impl_prompt = f"""You are the Business Analyst for project "{project}".
 
 Planning summary:
 {planning_summary}
 
 Requirement:
-{ctx.get('requirement', '')}
+{requirement}
 
-Do all of the following:
-1. Use get_tree and read_file to inspect existing files.
-2. Implement required source files with write_file.
-3. Update or create README/run instructions if needed.
-4. Use write_file to create implementation/implementation_summary.md listing what was built and what's pending.
-{"5. If GitHub MCP tools are available, prepare branch and PR notes in implementation/github_notes.md." if has_github else ""}
+Break the plan into concrete implementation tasks:
+1. Use write_file to create implementation/task_breakdown.md with:
+   - Numbered implementation tasks (TASK-001, TASK-002, etc.)
+   - Clear acceptance criteria per task
+   - Priority ordering (P0 critical, P1 high, P2 normal)
+   - Dependencies between tasks
+   - Suggested owner role (coder, coder_2, qa)
+2. Use write_file to create implementation/acceptance_criteria.md with:
+   - Definition of done per task
+   - Business validation rules
+   - User-facing expectations
 
 Rules:
-- Write real code and concrete files.
-- Keep architecture aligned with planning artifacts.
+- Be specific and actionable — no vague tasks.
+- Every task must have clear acceptance criteria.
+- Order tasks by dependency then priority.
 """
-        impl_resp = self._ask(
-            "implementation",
-            "coder_implementation",
-            Role.CODER,
-            implementation_prompt,
-        )
-        outputs["coder_implementation"] = impl_resp
+        ba_resp = self._ask("implementation", "ba_task_breakdown", Role.BA, ba_impl_prompt)
+        outputs["ba_task_breakdown"] = ba_resp
 
-        qa_prompt = f"""You are QA for project "{ctx.get('project_name', 'project')}".
+        ba_summary = self._clip(ba_resp.content, MAX_IMPL_SUMMARY_CHARS)
 
-Implementation summary:
-{self._clip(impl_resp.content, MAX_IMPL_SUMMARY_CHARS)}
+        # ── Step 2: Senior Dev — Architecture + coordination ────────────
+        senior_prompt = f"""You are the Senior Developer / Architect for project "{project}".
+
+Requirement:
+{requirement}
+
+BA task breakdown:
+{ba_summary}
+
+Design the implementation architecture and coordinate the build:
+1. Use write_file to create implementation/architecture.md with:
+   - System architecture (components, data flow, interfaces)
+   - Technology decisions and rationale
+   - File/module structure to implement
+   - Sequencing: which tasks to build first and why
+   - Integration points between components
+2. Use write_file to create implementation/coding_guidelines.md with:
+   - Coding standards for this project
+   - Error handling patterns
+   - Naming conventions
+   - Critical constraints the coders must follow
+
+Rules:
+- Make architecture decisions concrete — specify exact files, modules, patterns.
+- Address each task from the BA breakdown with technical direction.
+- Flag any risks or blockers the coders should know about.
+"""
+        senior_resp = self._ask("implementation", "senior_architecture", Role.SENIOR_DEV, senior_prompt)
+        outputs["senior_architecture"] = senior_resp
+
+        arch_summary = self._clip(senior_resp.content, MAX_IMPL_SUMMARY_CHARS)
+
+        # ── Step 3: QA — Upfront test strategy ──────────────────────────
+        qa_strategy_prompt = f"""You are QA lead for project "{project}".
+
+BA task breakdown:
+{ba_summary}
+
+Architecture design:
+{arch_summary}
+
+Define the test strategy BEFORE coding begins:
+1. Use write_file to create quality/test_strategy.md with:
+   - Test approach per task (unit, integration, e2e)
+   - Critical test scenarios and edge cases
+   - Quality gates that must pass before code is accepted
+   - Risk areas needing extra coverage
+2. Use write_file to create quality/test_cases_spec.md with:
+   - Specific test case outlines (TC-001, TC-002, etc.)
+   - Input/output expectations
+   - Boundary conditions
+
+Rules:
+- Define quality gates the reviewer will use later.
+- Be specific about what "passing" means for each task.
+"""
+        qa_strategy_resp = self._ask("implementation", "qa_test_strategy", Role.QA, qa_strategy_prompt)
+        outputs["qa_test_strategy"] = qa_strategy_resp
+
+        qa_summary = self._clip(qa_strategy_resp.content, MAX_IMPL_SUMMARY_CHARS)
+
+        # ── Step 4: Coder — Primary implementation ──────────────────────
+        coder_prompt = f"""You are the primary developer for project "{project}".
+
+Requirement:
+{requirement}
+
+Architecture design:
+{arch_summary}
+
+QA test strategy (your code must satisfy these quality gates):
+{qa_summary}
 
 Do all of the following:
-1. Use write_file to create/update test files.
+1. Use get_tree and read_file to inspect any existing files.
+2. Implement the primary source files with write_file — follow the architecture design.
+3. Write unit tests alongside your code.
+4. Create or update README/run instructions if needed.
+5. Use write_file to create implementation/coder_summary.md listing what you built.
+{"6. If GitHub MCP tools are available, prepare branch and PR notes in implementation/github_notes.md." if has_github else ""}
+
+Rules:
+- Write real, complete, working code — not stubs or pseudocode.
+- Follow the coding guidelines from the senior dev.
+- Ensure your code is testable per the QA strategy.
+- Address the BA's acceptance criteria for each task you implement.
+"""
+        coder_resp = self._ask("implementation", "coder_implementation", Role.CODER, coder_prompt)
+        outputs["coder_implementation"] = coder_resp
+
+        coder_summary = self._clip(coder_resp.content, MAX_IMPL_SUMMARY_CHARS)
+
+        # ── Step 5: Coder 2 — Secondary/parallel implementation ────────
+        coder2_prompt = f"""You are the secondary developer for project "{project}".
+
+Architecture design:
+{arch_summary}
+
+Primary coder's work:
+{coder_summary}
+
+QA test strategy:
+{qa_summary}
+
+Do the following:
+1. Review what the primary coder built — identify gaps or remaining tasks.
+2. Implement any remaining source files, alternative modules, or supporting code.
+3. Add integration tests or additional unit tests for areas the primary coder missed.
+4. Use write_file to create implementation/coder2_summary.md with what you built and any concerns.
+
+Rules:
+- Don't duplicate what the primary coder already built.
+- Focus on gaps, edge cases, and integration code.
+- Write real code, not descriptions.
+"""
+        coder2_resp = self._ask("implementation", "coder2_implementation", Role.CODER_2, coder2_prompt)
+        outputs["coder2_implementation"] = coder2_resp
+
+        all_code_summary = self._clip(
+            coder_resp.content + "\n\n" + coder2_resp.content,
+            MAX_IMPL_SUMMARY_CHARS,
+        )
+
+        # ── Step 6: Reviewer — Code review ──────────────────────────────
+        reviewer_prompt = f"""You are the Code Reviewer for project "{project}".
+
+Architecture design:
+{arch_summary}
+
+QA quality gates:
+{qa_summary}
+
+Implementation summary (both coders):
+{all_code_summary}
+
+Review the implementation:
+1. Use read_file and get_tree to inspect what was built.
+2. Use write_file to create review/code_review.md with:
+   - Review verdict: APPROVED / CHANGES_REQUESTED / BLOCKED
+   - Issues found (severity: critical, major, minor)
+   - Architecture compliance check
+   - Code quality assessment
+   - Security concerns
+   - Performance concerns
+3. If critical issues are found, use write_file to document required fixes in review/required_fixes.md.
+
+Rules:
+- Be thorough but pragmatic — not every style preference is a blocker.
+- Check against the QA quality gates and BA acceptance criteria.
+- Focus on correctness, security, and maintainability.
+"""
+        reviewer_resp = self._ask("implementation", "reviewer_code_review", Role.REVIEWER, reviewer_prompt)
+        outputs["reviewer_code_review"] = reviewer_resp
+
+        review_summary = self._clip(reviewer_resp.content, MAX_IMPL_SUMMARY_CHARS)
+
+        # ── Step 7: BA + Senior Dev — Final sign-off ────────────────────
+        signoff_prompt = f"""You are conducting the final implementation sign-off for project "{project}".
+
+Requirement:
+{requirement}
+
+Code review result:
+{review_summary}
+
+Implementation summary:
+{all_code_summary}
+
+Provide the final sign-off assessment:
+1. Use write_file to create implementation/implementation_summary.md with:
+   - Overall status: APPROVED / NEEDS_WORK
+   - What was built (files, features, tests)
+   - What's still pending or deferred
+   - Acceptance criteria pass/fail per BA task
+   - Architecture compliance per senior dev design
+   - Key risks going forward
+2. Use write_file to create quality/final_assessment.md with quality summary.
+
+Rules:
+- Be honest about gaps — don't rubber-stamp incomplete work.
+- Reference specific acceptance criteria from the BA breakdown.
+"""
+        signoff_resp = self._ask("implementation", "senior_ba_signoff", Role.SENIOR_DEV, signoff_prompt)
+        outputs["senior_ba_signoff"] = signoff_resp
+
+        # ── Step 8: QA — Final test assets + Excel plan ─────────────────
+        qa_final_prompt = f"""You are QA finalizing test assets for project "{project}".
+
+Implementation summary:
+{all_code_summary}
+
+Review result:
+{review_summary}
+
+Do all of the following:
+1. Use write_file to create/update test files based on what was actually built.
 2. Use create_test_plan_excel to create quality/test_plan.xlsx.
    - file_path: quality/test_plan.xlsx
-   - suite_name: "<project name> core test plan"
+   - suite_name: "{project} core test plan"
    - test_cases: JSON array with id, title, steps, expected_result, priority, status, category
 3. Use write_file to create quality/issues_for_tracking.txt with defects/risks found.
 4. If run_tests is available, run relevant tests and report outcomes in quality/test_results.md.
@@ -297,9 +502,10 @@ Do all of the following:
 Rules:
 - Ensure the Excel tool call is actually executed.
 - Keep defects specific and actionable.
+- Reference the reviewer's findings in your test priorities.
 """
-        qa_resp = self._ask("implementation", "qa_quality_assets", Role.QA, qa_prompt)
-        outputs["qa_quality_assets"] = qa_resp
+        qa_final_resp = self._ask("implementation", "qa_quality_assets", Role.QA, qa_final_prompt)
+        outputs["qa_quality_assets"] = qa_final_resp
 
         return PhaseResult(
             name="implementation",
