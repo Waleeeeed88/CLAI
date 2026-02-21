@@ -21,6 +21,17 @@ from .observable_registry import ObservableToolRegistry
 _executor = ThreadPoolExecutor(max_workers=4)
 
 
+def _format_runtime_error(exc: Exception) -> str:
+    text = str(exc)
+    lower = text.lower()
+    if "rate_limit" in lower or "rate limit" in lower or " 429" in lower or "429 " in lower:
+        return (
+            "Provider rate limit hit (429). The run used too much request context too quickly. "
+            "Try again after a short wait, or reduce selected files/context size."
+        )
+    return f"{type(exc).__name__}: {exc}"
+
+
 def _make_tool_callbacks(
     bus: EventBus, role: Role
 ) -> Tuple[Callable, Callable]:
@@ -81,7 +92,7 @@ def _instrument_orchestrator(orch: Orchestrator, bus: EventBus, context_label: s
             bus.put({
                 "type": "agent_done",
                 "agent": role.value,
-                "content": f"[error] {exc}",
+                "content": f"[error] {_format_runtime_error(exc)}",
                 "tokens": 0,
                 "model": "unknown",
             })
@@ -112,7 +123,7 @@ def _instrument_orchestrator(orch: Orchestrator, bus: EventBus, context_label: s
             bus.put({
                 "type": "agent_done",
                 "agent": role.value,
-                "content": f"[error] {exc}",
+                "content": f"[error] {_format_runtime_error(exc)}",
                 "tokens": 0,
                 "model": "unknown",
             })
@@ -172,7 +183,7 @@ def run_stage_async(
                 "duration": result.duration,
             })
         except Exception as e:
-            bus.put({"type": "error", "message": f"{type(e).__name__}: {e}"})
+            bus.put({"type": "error", "message": _format_runtime_error(e)})
         finally:
             bus.close()
 
@@ -205,7 +216,7 @@ def run_workflow_async(
                 "duration": result.duration,
             })
         except Exception as e:
-            bus.put({"type": "error", "message": f"{type(e).__name__}: {e}"})
+            bus.put({"type": "error", "message": _format_runtime_error(e)})
         finally:
             bus.close()
 
@@ -256,7 +267,7 @@ def run_pipeline_async(
                 "status": final.status.value,
             })
         except Exception as e:
-            bus.put({"type": "error", "message": f"{type(e).__name__}: {e}"})
+            bus.put({"type": "error", "message": _format_runtime_error(e)})
         finally:
             bus.close()
 

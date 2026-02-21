@@ -10,6 +10,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 MAX_TOOL_CALL_ITERATIONS = 25
+MAX_TOOL_RESULT_CHARS = 4000
 
 
 class MessageRole(Enum):
@@ -97,6 +98,18 @@ class BaseAgent(ABC):
         self.tool_registry = tool_registry  # core.tool_registry.ToolRegistry
         self.conversation_history: List[Message] = []
         self._client = None
+        self.max_tool_result_chars = MAX_TOOL_RESULT_CHARS
+
+    @staticmethod
+    def _truncate_text(text: str, max_chars: int) -> str:
+        if max_chars <= 0:
+            return ""
+        if len(text) <= max_chars:
+            return text
+        suffix = "\n...[truncated for token safety]"
+        if max_chars <= len(suffix):
+            return text[:max_chars]
+        return f"{text[: max_chars - len(suffix)].rstrip()}{suffix}"
 
     @property
     @abstractmethod
@@ -122,7 +135,10 @@ class BaseAgent(ABC):
             )
         try:
             result = self.tool_registry.execute(tool_call.name, tool_call.arguments)
-            return ToolResult(tool_call_id=tool_call.id, content=str(result))
+            content = str(result)
+            if len(content) > self.max_tool_result_chars:
+                content = self._truncate_text(content, self.max_tool_result_chars)
+            return ToolResult(tool_call_id=tool_call.id, content=content)
         except Exception as e:
             logger.error(f"Tool execution error ({tool_call.name}): {e}")
             return ToolResult(

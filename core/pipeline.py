@@ -19,6 +19,12 @@ from agents.factory import Role
 
 logger = logging.getLogger(__name__)
 
+MAX_REQUIREMENT_CHARS = 9000
+MAX_SELECTED_FILES_CHARS = 1800
+MAX_PLANNING_SUMMARY_CHARS = 1600
+MAX_IMPL_SUMMARY_CHARS = 1300
+MAX_GITHUB_PLAN_SUMMARY_CHARS = 1200
+
 
 class PhaseStatus(Enum):
     PENDING = "pending"
@@ -87,6 +93,17 @@ class ProjectPipeline:
         self.on_step_done = on_step_done
         self.on_phase_done = on_phase_done
 
+    @staticmethod
+    def _clip(text: str, max_chars: int) -> str:
+        if not text:
+            return ""
+        if len(text) <= max_chars:
+            return text
+        suffix = "\n...[truncated]"
+        if max_chars <= len(suffix):
+            return text[:max_chars]
+        return f"{text[: max_chars - len(suffix)].rstrip()}{suffix}"
+
     def run(
         self,
         requirement: str,
@@ -99,6 +116,7 @@ class ProjectPipeline:
         """Execute the three-phase pipeline."""
 
         result = PipelineResult(project_name=project_name or "project")
+        requirement = self._clip(requirement or "", MAX_REQUIREMENT_CHARS)
         ctx: Dict[str, str] = {
             "requirement": requirement,
             "project_name": project_name or "project",
@@ -107,7 +125,8 @@ class ProjectPipeline:
         if selected_files:
             cleaned = [p.strip() for p in selected_files if p and p.strip()]
             if cleaned:
-                ctx["selected_files"] = "\n".join(f"- {p}" for p in cleaned)
+                selected_blob = "\n".join(f"- {p}" for p in cleaned)
+                ctx["selected_files"] = self._clip(selected_blob, MAX_SELECTED_FILES_CHARS)
 
         has_github = (not skip_github) and self.orch.github_available
         ctx["has_github"] = str(has_github)
@@ -229,7 +248,10 @@ Rules:
 
         t0 = time.time()
         outputs: Dict[str, AgentResponse] = {}
-        planning_summary = ctx.get("ba_planning_package", "")[:3000]
+        planning_summary = self._clip(
+            ctx.get("ba_planning_package", ""),
+            MAX_PLANNING_SUMMARY_CHARS,
+        )
 
         implementation_prompt = f"""You are implementing project "{ctx.get('project_name', 'project')}".
 
@@ -261,7 +283,7 @@ Rules:
         qa_prompt = f"""You are QA for project "{ctx.get('project_name', 'project')}".
 
 Implementation summary:
-{impl_resp.content[:2500]}
+{self._clip(impl_resp.content, MAX_IMPL_SUMMARY_CHARS)}
 
 Do all of the following:
 1. Use write_file to create/update test files.
@@ -295,6 +317,7 @@ Rules:
         project_name = ctx.get("project_name", "project")
         requirement = ctx.get("requirement", "")
         plan_summary = ctx.get("ba_planning_package", "")[:2200]
+        plan_summary = self._clip(plan_summary, MAX_GITHUB_PLAN_SUMMARY_CHARS)
         repo_owner = ctx.get("repo_owner", "")
 
         if has_github:

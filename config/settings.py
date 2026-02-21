@@ -43,6 +43,14 @@ class Settings(BaseSettings):
     default_temperature: float = 0.7
     verbose: bool = True
     log_level: str = "DEBUG"
+
+    # Input-shaping and retry safeguards for Anthropic requests.
+    anthropic_retry_attempts: int = 3
+    anthropic_retry_base_delay_seconds: float = 8.0
+    anthropic_message_char_limit: int = 8000
+    anthropic_tool_result_char_limit: int = 2500
+    anthropic_total_input_char_budget: int = 24000
+    anthropic_total_input_char_budget_retry: int = 12000
     
     mcp_enabled: bool = True
     mcp_workspace_root: str = "./workspace"

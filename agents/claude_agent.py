@@ -1,5 +1,6 @@
 """Claude agent - Anthropic API with tool-calling support."""
 from typing import Any, Dict, List
+import time
 import anthropic
 
 from .base import BaseAgent, AgentResponse, Message, MessageRole, ToolCall
@@ -16,6 +17,101 @@ class ClaudeAgent(BaseAgent):
         self._client = anthropic.Anthropic(
             api_key=settings.anthropic_api_key.get_secret_value()
         )
+
+    @staticmethod
+    def _truncate_text(text: str, max_chars: int) -> str:
+        if max_chars <= 0:
+            return ""
+        if len(text) <= max_chars:
+            return text
+        suffix = "\n...[truncated to reduce input tokens]"
+        if max_chars <= len(suffix):
+            return text[:max_chars]
+        return f"{text[: max_chars - len(suffix)].rstrip()}{suffix}"
+
+    @staticmethod
+    def _is_rate_limit_error(exc: Exception) -> bool:
+        msg = str(exc).lower()
+        return (
+            "rate_limit" in msg
+            or "rate limit" in msg
+            or "429" in msg
+            or type(exc).__name__.lower() == "ratelimiterror"
+        )
+
+    def _compact_tool_input(self, value: Any, max_chars: int) -> Any:
+        if isinstance(value, str):
+            return self._truncate_text(value, max_chars)
+        if isinstance(value, list):
+            return [self._compact_tool_input(v, max_chars) for v in value]
+        if isinstance(value, dict):
+            return {k: self._compact_tool_input(v, max_chars) for k, v in value.items()}
+        return value
+
+    def _compact_anthropic_messages(
+        self, messages: List[Dict[str, Any]], *, aggressive: bool = False
+    ) -> List[Dict[str, Any]]:
+        settings = get_settings()
+        text_limit = settings.anthropic_message_char_limit
+        tool_limit = settings.anthropic_tool_result_char_limit
+        budget = settings.anthropic_total_input_char_budget
+        if aggressive:
+            text_limit = max(800, text_limit // 2)
+            tool_limit = max(500, tool_limit // 2)
+            budget = settings.anthropic_total_input_char_budget_retry
+
+        compact_rev: List[Dict[str, Any]] = []
+        used_chars = 0
+
+        for msg in reversed(messages):
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            out: Dict[str, Any] = {"role": role}
+
+            if isinstance(content, str):
+                clipped = self._truncate_text(content, text_limit)
+                remaining = max(0, budget - used_chars)
+                clipped = self._truncate_text(clipped, remaining) if remaining < len(clipped) else clipped
+                used_chars += len(clipped)
+                out["content"] = clipped
+            elif isinstance(content, list):
+                blocks_rev: List[Dict[str, Any]] = []
+                for block in reversed(content):
+                    if used_chars >= budget:
+                        break
+                    b = dict(block)
+                    btype = b.get("type")
+
+                    if btype == "text":
+                        text = self._truncate_text(str(b.get("text", "")), text_limit)
+                        remaining = max(0, budget - used_chars)
+                        text = self._truncate_text(text, remaining) if remaining < len(text) else text
+                        used_chars += len(text)
+                        b["text"] = text
+                    elif btype == "tool_result":
+                        tcontent = self._truncate_text(str(b.get("content", "")), tool_limit)
+                        remaining = max(0, budget - used_chars)
+                        tcontent = self._truncate_text(tcontent, remaining) if remaining < len(tcontent) else tcontent
+                        used_chars += len(tcontent)
+                        b["content"] = tcontent
+                    elif btype == "tool_use" and "input" in b:
+                        b["input"] = self._compact_tool_input(b["input"], tool_limit)
+
+                    blocks_rev.append(b)
+
+                out["content"] = list(reversed(blocks_rev))
+            else:
+                text = self._truncate_text(str(content), text_limit)
+                remaining = max(0, budget - used_chars)
+                text = self._truncate_text(text, remaining) if remaining < len(text) else text
+                used_chars += len(text)
+                out["content"] = text
+
+            compact_rev.append(out)
+            if used_chars >= budget:
+                break
+
+        return list(reversed(compact_rev))
 
     # ── message conversion ───────────────────────────────────────────
 
@@ -67,7 +163,11 @@ class ClaudeAgent(BaseAgent):
     # ── request ──────────────────────────────────────────────────────
 
     def _send_request(self, messages: List[Message]) -> AgentResponse:
-        anthropic_messages = self._to_anthropic_messages(messages)
+        settings = get_settings()
+        anthropic_messages = self._compact_anthropic_messages(
+            self._to_anthropic_messages(messages),
+            aggressive=False,
+        )
 
         request_params: Dict[str, Any] = {
             "model": self.model,
@@ -85,7 +185,25 @@ class ClaudeAgent(BaseAgent):
         if self.tool_registry and len(self.tool_registry) > 0:
             request_params["tools"] = self.tool_registry.to_anthropic_format()
 
-        response = self._client.messages.create(**request_params)
+        response = None
+        retry_attempts = max(1, settings.anthropic_retry_attempts)
+        for attempt in range(retry_attempts):
+            try:
+                response = self._client.messages.create(**request_params)
+                break
+            except Exception as exc:
+                if not self._is_rate_limit_error(exc) or attempt >= (retry_attempts - 1):
+                    raise
+
+                delay = settings.anthropic_retry_base_delay_seconds * (2 ** attempt)
+                request_params["messages"] = self._compact_anthropic_messages(
+                    request_params["messages"],
+                    aggressive=True,
+                )
+                time.sleep(delay)
+
+        if response is None:
+            raise RuntimeError("Anthropic request failed after retries.")
 
         # Extract text content
         content = "".join(
