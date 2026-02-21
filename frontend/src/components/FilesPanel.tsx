@@ -1,59 +1,100 @@
 "use client";
+
+import { motion, AnimatePresence } from "framer-motion";
+import { X, FileCode2 } from "lucide-react";
 import { FileEntry } from "../lib/types";
-import { AGENT_LABELS, AGENT_COLORS } from "./AgentBadge";
+import { AGENTS, type AgentRole } from "../lib/constants";
+import { cn } from "../lib/cn";
 
-export function FilesPanel({ files }: { files: FileEntry[] }) {
-  if (files.length === 0) {
-    return (
-      <div className="w-72 flex-shrink-0 border-l border-slate-800 bg-[#081021]">
-        <div className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
-          File Activity
-        </div>
-        <div className="px-4 py-2 text-xs text-slate-500">
-          File operations will appear here once tools start writing.
-        </div>
-      </div>
-    );
-  }
+interface Props {
+  files: FileEntry[];
+  open: boolean;
+  onClose: () => void;
+}
 
+export function FilesPanel({ files, open, onClose }: Props) {
   const sorted = [...files].sort((a, b) => b.timestamp - a.timestamp);
 
   return (
-    <div className="w-72 flex-shrink-0 border-l border-slate-800 bg-[#081021] overflow-y-auto">
-      <div className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
-        Files ({files.length})
-      </div>
-      <div className="px-3 pb-3 space-y-1.5">
-        {sorted.map((f) => {
-          const nameParts = f.path.split(/[\\/]/g);
-          const name = nameParts[nameParts.length - 1] ?? f.path;
-          const color = AGENT_COLORS[f.agent] ?? "#666";
-          const statusCls = f.status === "done"
-            ? "text-emerald-300 border-emerald-700/40 bg-emerald-900/20"
-            : f.status === "writing"
-            ? "text-cyan-300 border-cyan-700/40 bg-cyan-900/20"
-            : "text-red-300 border-red-700/40 bg-red-900/20";
-          const parent = nameParts.length > 1 ? nameParts.slice(0, -1).join("/") : "";
-          return (
-            <div key={f.id} className="rounded border border-slate-800 bg-slate-900/70 p-2.5 text-[11px]">
-              <div className="flex items-center gap-2">
-                <span className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold ${statusCls}`}>
-                  {f.status === "writing" ? "writing" : f.status === "done" ? "done" : "error"}
-                </span>
-                <span className="text-[9px] font-bold ml-auto" style={{ color }}>
-                  {AGENT_LABELS[f.agent] ?? f.agent}
-                </span>
-              </div>
-              <div className="mt-1.5 truncate text-slate-100" title={f.path}>
-                {name}
-              </div>
-              <div className="truncate text-[10px] text-slate-500" title={parent}>
-                {parent || "root"}
-              </div>
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 z-40 bg-black/30"
+          />
+          <motion.div
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", damping: 30, stiffness: 300 }}
+            className="fixed right-0 top-0 bottom-0 z-50 w-80 border-l border-clai-border bg-clai-bg overflow-y-auto"
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-clai-border">
+              <span className="text-xs font-semibold text-clai-text uppercase tracking-widest">
+                File Activity ({files.length})
+              </span>
+              <button onClick={onClose} className="p-1 rounded text-clai-muted hover:text-clai-text transition-colors">
+                <X className="w-4 h-4" />
+              </button>
             </div>
-          );
-        })}
-      </div>
-    </div>
+
+            {files.length === 0 ? (
+              <div className="px-4 py-8 text-center text-xs text-clai-muted">
+                File operations will appear here once tools start writing.
+              </div>
+            ) : (
+              <div className="p-3 space-y-1.5">
+                {sorted.map((f) => {
+                  const nameParts = f.path.split(/[\\/]/g);
+                  const name = nameParts[nameParts.length - 1] ?? f.path;
+                  const parent = nameParts.length > 1 ? nameParts.slice(0, -1).join("/") : "";
+                  const agentMeta = AGENTS[f.agent as AgentRole];
+                  const color = agentMeta?.color ?? "#666";
+                  const agentLabel = agentMeta?.label ?? f.agent;
+
+                  return (
+                    <motion.div
+                      key={f.id}
+                      initial={{ opacity: 0, x: 12 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="rounded-lg border border-clai-border bg-clai-surface p-2.5 text-[11px]"
+                    >
+                      <div className="flex items-center gap-2">
+                        <FileCode2 className="w-3.5 h-3.5 text-clai-muted flex-shrink-0" />
+                        <span className="text-clai-text font-medium truncate" title={f.path}>
+                          {name}
+                        </span>
+                        <span
+                          className={cn(
+                            "ml-auto rounded-full px-2 py-0.5 text-[9px] font-semibold border flex-shrink-0",
+                            f.status === "done" && "border-clai-success/30 bg-clai-success/10 text-clai-success",
+                            f.status === "writing" && "border-clai-accent/30 bg-clai-accent/10 text-clai-accent",
+                            f.status === "error" && "border-clai-error/30 bg-clai-error/10 text-clai-error",
+                          )}
+                        >
+                          {f.status}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center gap-2 text-[10px]">
+                        <span className="text-clai-muted truncate" title={parent}>
+                          {parent || "root"}
+                        </span>
+                        <span className="ml-auto font-semibold" style={{ color }}>
+                          {agentLabel}
+                        </span>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 }

@@ -16,8 +16,20 @@ from ..services import runner
 router = APIRouter()
 
 MAX_SELECTED_FILES = 8
-MAX_PREVIEW_CHARS_PER_FILE = 1200
-MAX_TOTAL_PREVIEW_CHARS = 5000
+MAX_PREVIEW_CHARS_PER_FILE = 700
+MAX_TOTAL_PREVIEW_CHARS = 2600
+MAX_REQUIREMENT_CHARS = 9000
+
+
+def _truncate_text(text: str, max_chars: int) -> str:
+    if max_chars <= 0:
+        return ""
+    if len(text) <= max_chars:
+        return text
+    suffix = "\n... [truncated]"
+    if max_chars <= len(suffix):
+        return text[:max_chars]
+    return f"{text[: max_chars - len(suffix)].rstrip()}{suffix}"
 
 
 def _load_file_preview(path_str: str) -> str:
@@ -61,7 +73,7 @@ def _selected_files_context(selected_files: List[str]) -> Dict[str, str]:
 
 def _augment_requirement(requirement: str, selected_ctx: Dict[str, str]) -> str:
     if not selected_ctx:
-        return requirement
+        return _truncate_text(requirement, MAX_REQUIREMENT_CHARS)
     selected_list = selected_ctx.get("selected_files", "")
     selected_preview = selected_ctx.get("selected_file_context", "")
     extra = (
@@ -70,9 +82,16 @@ def _augment_requirement(requirement: str, selected_ctx: Dict[str, str]) -> str:
         "Selected file previews:\n"
         f"{selected_preview}"
     )
+    combined = f"{requirement.strip()}\n\n{extra}" if requirement.strip() else extra
+    if len(combined) <= MAX_REQUIREMENT_CHARS:
+        return combined
+
+    minimal_extra = f"Selected files from UI:\n{selected_list}"
     if requirement.strip():
-        return f"{requirement.strip()}\n\n{extra}"
-    return extra
+        room = max(0, MAX_REQUIREMENT_CHARS - len(minimal_extra) - 2)
+        compact_requirement = _truncate_text(requirement.strip(), room)
+        return _truncate_text(f"{compact_requirement}\n\n{minimal_extra}", MAX_REQUIREMENT_CHARS)
+    return _truncate_text(minimal_extra, MAX_REQUIREMENT_CHARS)
 
 
 @router.post("/chat", response_model=SessionResponse)
@@ -104,6 +123,16 @@ async def start_chat(req: ChatRequest):
         bus.close()
 
     return SessionResponse(session_id=session_id)
+
+
+@router.post("/chat/{session_id}/cancel")
+async def cancel_chat(session_id: str):
+    bus = session_manager.get_bus(session_id)
+    if bus is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    bus.put({"type": "error", "message": "Cancelled by user"})
+    bus.close()
+    return {"status": "cancelled"}
 
 
 @router.get("/chat/{session_id}/stream")

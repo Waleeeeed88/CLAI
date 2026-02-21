@@ -1,11 +1,16 @@
 "use client";
+
 import { useCallback, useEffect, useState } from "react";
-import { startRun, fetchWorkflows } from "../lib/api";
+import { startRun, cancelRun, fetchWorkflows } from "../lib/api";
 import { useChatStore } from "../store/chatStore";
 import { useSSE } from "../hooks/useSSE";
-import { Sidebar } from "../components/Sidebar";
+import { type PhaseId } from "../lib/constants";
+import { TopBar } from "../components/TopBar";
 import { ChatWindow } from "../components/ChatWindow";
+import { ChatInput } from "../components/ChatInput";
 import { FilesPanel } from "../components/FilesPanel";
+import { SettingsDrawer } from "../components/SettingsDrawer";
+import { ConversationHistory, type ConversationSummary } from "../components/ConversationHistory";
 
 export default function Home() {
   const {
@@ -15,6 +20,13 @@ export default function Home() {
   } = useChatStore();
 
   const [connectionError, setConnectionError] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showFiles, setShowFiles] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+
+  // For passing suggestion card selections to ChatInput
+  const [pendingPrompt, setPendingPrompt] = useState<string | undefined>(undefined);
+  const [pendingPhases, setPendingPhases] = useState<PhaseId[] | undefined>(undefined);
 
   useEffect(() => {
     fetchWorkflows()
@@ -56,32 +68,66 @@ export default function Home() {
     }
   };
 
+  const handleStop = () => {
+    if (sessionId) {
+      cancelRun(sessionId).catch(() => {});
+    }
+  };
+
+  const handleSuggestionSelect = (prompt: string, suggestionPhases: PhaseId[]) => {
+    setPendingPrompt(prompt);
+    setPendingPhases(suggestionPhases);
+  };
+
+  const handleNewChat = () => {
+    reset();
+    setPendingPrompt(undefined);
+    setPendingPhases(undefined);
+  };
+
+  // Conversation history (stub — will be localStorage-backed in Phase 4.4)
+  const conversations: ConversationSummary[] = [];
+
   return (
-    <div className="flex h-full flex-col lg:flex-row">
-      <Sidebar onStart={handleStart} isRunning={isRunning} onReset={reset} connectionError={connectionError} />
+    <div className="flex h-full flex-col bg-clai-bg">
+      <TopBar
+        isRunning={isRunning}
+        messageCount={messages.length}
+        error={error}
+        connectionError={connectionError}
+        onToggleSettings={() => setShowSettings((v) => !v)}
+        onToggleFiles={() => setShowFiles((v) => !v)}
+        onToggleHistory={() => setShowHistory((v) => !v)}
+        onNewChat={handleNewChat}
+      />
 
-      <div className="flex-1 flex flex-col min-w-0 min-h-0">
-        <div className="border-b border-slate-800 px-6 py-2.5 flex items-center h-10 bg-slate-900/50">
-          {isRunning ? (
-            <span className="text-[11px] text-cyan-300 font-mono flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-300 animate-pulse" />
-              Running...
-            </span>
-          ) : error ? (
-            <span className="text-[11px] text-red-400 font-mono">Error</span>
-          ) : (
-            <span className="text-[11px] text-slate-400 font-mono">
-              {messages.length > 0 ? `${messages.length} responses` : "Ready"}
-            </span>
-          )}
-        </div>
+      <ChatWindow
+        messages={messages}
+        phases={phases}
+        isRunning={isRunning}
+        error={error}
+        onSuggestionSelect={handleSuggestionSelect}
+      />
 
-        <ChatWindow messages={messages} phases={phases} isRunning={isRunning} error={error} />
-      </div>
+      <ChatInput
+        isRunning={isRunning}
+        onSend={handleStart}
+        onStop={handleStop}
+        initialPrompt={pendingPrompt}
+        initialPhases={pendingPhases}
+      />
 
-      <div className="hidden xl:block">
-        <FilesPanel files={files} />
-      </div>
+      {/* Drawers */}
+      <FilesPanel files={files} open={showFiles} onClose={() => setShowFiles(false)} />
+      <SettingsDrawer open={showSettings} onClose={() => setShowSettings(false)} />
+      <ConversationHistory
+        open={showHistory}
+        onClose={() => setShowHistory(false)}
+        conversations={conversations}
+        activeId={sessionId}
+        onSelect={() => {}}
+        onDelete={() => {}}
+      />
     </div>
   );
 }

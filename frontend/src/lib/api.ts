@@ -39,6 +39,10 @@ export async function fetchWorkflows(): Promise<{
   return res.json();
 }
 
+export async function cancelRun(sessionId: string): Promise<void> {
+  await fetch(`${BASE}/chat/${sessionId}/cancel`, { method: "POST" });
+}
+
 export function getStreamUrl(sessionId: string): string {
   return `${BASE}/chat/${sessionId}/stream`;
 }
