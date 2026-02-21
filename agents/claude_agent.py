@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 import time
 import anthropic
 
-from .base import BaseAgent, AgentResponse, Message, MessageRole, ToolCall
+from .base import BaseAgent, AgentResponse, Message, MessageRole, ToolCall, DEFAULT_REQUEST_TIMEOUT
 from config import get_settings
 
 
@@ -15,7 +15,8 @@ class ClaudeAgent(BaseAgent):
     def _initialize_client(self) -> None:
         settings = get_settings()
         self._client = anthropic.Anthropic(
-            api_key=settings.anthropic_api_key.get_secret_value()
+            api_key=settings.anthropic_api_key.get_secret_value(),
+            timeout=DEFAULT_REQUEST_TIMEOUT,
         )
 
     @staticmethod

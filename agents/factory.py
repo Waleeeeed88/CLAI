@@ -6,6 +6,7 @@ from .base import BaseAgent
 from .claude_agent import ClaudeAgent
 from .gpt_agent import GPTAgent
 from .gemini_agent import GeminiAgent
+from .kimi_agent import KimiAgent
 from config import get_settings
 
 
@@ -13,6 +14,7 @@ class Provider(Enum):
     ANTHROPIC = "anthropic"
     OPENAI = "openai"
     GOOGLE = "google"
+    KIMI = "kimi"
 
 
 class Role(Enum):
@@ -28,6 +30,7 @@ PROVIDER_AGENTS: Dict[Provider, Type[BaseAgent]] = {
     Provider.ANTHROPIC: ClaudeAgent,
     Provider.OPENAI: GPTAgent,
     Provider.GOOGLE: GeminiAgent,
+    Provider.KIMI: KimiAgent,
 }
 
 ROLE_PROVIDERS: Dict[Role, Provider] = {

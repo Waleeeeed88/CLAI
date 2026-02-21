@@ -6,6 +6,7 @@ FastAPI drains the queue via the async stream() generator.
 import asyncio
 import json
 import queue
+import threading
 import time
 from typing import Any, AsyncGenerator, Dict
 
@@ -16,6 +17,16 @@ class EventBus:
 
     def __init__(self):
         self._q: queue.Queue = queue.Queue()
+        self._cancelled = threading.Event()
+
+    @property
+    def is_cancelled(self) -> bool:
+        """Check if this run has been cancelled."""
+        return self._cancelled.is_set()
+
+    def cancel(self) -> None:
+        """Signal cancellation to the background worker thread."""
+        self._cancelled.set()
 
     def put(self, event: Dict[str, Any]) -> None:
         """Called from a background thread to emit an event."""
@@ -27,7 +38,7 @@ class EventBus:
 
     async def stream(self) -> AsyncGenerator[str, None]:
         """Async generator consumed by FastAPI StreamingResponse."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         last_event = time.monotonic()
 
         while True:

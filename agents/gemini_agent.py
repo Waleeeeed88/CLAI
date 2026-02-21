@@ -168,9 +168,7 @@ class GeminiAgent(BaseAgent):
             )
             last_content = tool_result_parts
         else:
-            if isinstance(last_content, str):
-                last_content = last_content
-            else:
+            if not isinstance(last_content, str):
                 last_content = str(last_content)
 
         # Re-initialize client if tool_registry was changed since last init
@@ -178,7 +176,9 @@ class GeminiAgent(BaseAgent):
             self._initialize_client()
 
         chat = self._client.start_chat(history=gemini_history)
-        response = chat.send_message(last_content)
+        response = self._retry_request(
+            lambda: chat.send_message(last_content)
+        )
 
         # Check for function_call parts
         tool_calls: List[ToolCall] = []

@@ -40,7 +40,7 @@ export function ChatInput({
   const [showConfig, setShowConfig] = useState(false);
   const [projectName, setProjectName] = useState("my-project");
   const [workspaceDir, setWorkspaceDir] = useState("");
-  const [useGithub, setUseGithub] = useState(true);
+  const [useGithub, setUseGithub] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);

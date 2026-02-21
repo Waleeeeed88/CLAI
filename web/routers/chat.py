@@ -32,8 +32,21 @@ def _truncate_text(text: str, max_chars: int) -> str:
     return f"{text[: max_chars - len(suffix)].rstrip()}{suffix}"
 
 
-def _load_file_preview(path_str: str) -> str:
-    path = Path(path_str)
+def _validate_workspace(workspace_dir: str | None) -> str | None:
+    """Validate workspace_dir is an existing directory under the user home."""
+    if not workspace_dir:
+        return None
+    resolved = Path(workspace_dir).resolve()
+    if not resolved.is_dir():
+        raise HTTPException(status_code=400, detail=f"Workspace directory does not exist: {workspace_dir}")
+    return str(resolved)
+
+
+def _load_file_preview(path_str: str, workspace: Path | None) -> str:
+    """Load a file preview, restricting reads to workspace when provided."""
+    path = Path(path_str).resolve()
+    if workspace and not str(path).startswith(str(workspace)):
+        return "(file outside workspace — skipped)"
     if not path.exists() or not path.is_file():
         return "(missing or not a file)"
     try:
@@ -46,18 +59,19 @@ def _load_file_preview(path_str: str) -> str:
     return preview
 
 
-def _selected_files_context(selected_files: List[str]) -> Dict[str, str]:
+def _selected_files_context(selected_files: List[str], workspace_dir: str | None = None) -> Dict[str, str]:
     cleaned = [p.strip() for p in selected_files if p and p.strip()]
     if not cleaned:
         return {}
 
+    workspace = Path(workspace_dir).resolve() if workspace_dir else None
     cleaned = cleaned[:MAX_SELECTED_FILES]
     file_list = "\n".join(f"- {p}" for p in cleaned)
 
     previews: List[str] = []
     total = 0
     for p in cleaned:
-        snippet = _load_file_preview(p)
+        snippet = _load_file_preview(p, workspace)
         block = f"[{p}]\n{snippet}"
         total += len(block)
         if total > MAX_TOTAL_PREVIEW_CHARS:
@@ -96,8 +110,9 @@ def _augment_requirement(requirement: str, selected_ctx: Dict[str, str]) -> str:
 
 @router.post("/chat", response_model=SessionResponse)
 async def start_chat(req: ChatRequest):
+    workspace = _validate_workspace(req.workspace_dir)
     session_id, bus = session_manager.create_session()
-    selected_ctx = _selected_files_context(req.selected_files)
+    selected_ctx = _selected_files_context(req.selected_files, workspace)
 
     if req.type == "pipeline":
         base_requirement = req.requirement or req.context.get("requirement", "")
@@ -105,7 +120,7 @@ async def start_chat(req: ChatRequest):
         project_name = req.project_name or req.context.get("project_name", "project")
         runner.run_pipeline_async(
             requirement, project_name, bus,
-            workspace_dir=req.workspace_dir,
+            workspace_dir=workspace,
             use_github=req.use_github,
             selected_phases=req.selected_phases,
             selected_files=req.selected_files,
@@ -130,6 +145,7 @@ async def cancel_chat(session_id: str):
     bus = session_manager.get_bus(session_id)
     if bus is None:
         raise HTTPException(status_code=404, detail="Session not found")
+    bus.cancel()  # signal the background thread to stop
     bus.put({"type": "error", "message": "Cancelled by user"})
     bus.close()
     return {"status": "cancelled"}

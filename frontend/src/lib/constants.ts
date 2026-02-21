@@ -17,13 +17,27 @@ export const PHASES = [
 
 export type PhaseId = typeof PHASES[number]['id'];
 
+export const PROVIDERS = [
+  { id: 'anthropic', label: 'Anthropic (Claude)' },
+  { id: 'openai',    label: 'OpenAI (GPT)' },
+  { id: 'google',    label: 'Google (Gemini)' },
+  { id: 'kimi',      label: 'Kimi (Moonshot)' },
+] as const;
+
+export const DEFAULT_MODELS: Record<string, string[]> = {
+  anthropic: ['claude-opus-4-5-20251101', 'claude-sonnet-4-5-20250929'],
+  openai:    ['gpt-5.2-2025-12-11', 'gpt-4.1-2025-04-14', 'o3-mini'],
+  google:    ['gemini-3.1-pro-preview', 'gemini-3-flash-preview', 'gemini-2.5-pro-preview-05-06'],
+  kimi:      ['kimi-k2-0520', 'moonshot-v1-128k', 'moonshot-v1-32k'],
+};
+
 export const SUGGESTION_CARDS = [
   {
     id: 'new-project',
     title: 'New Project',
     description: 'Start from a requirement and build end-to-end',
     phases: ['planning', 'implementation'] as PhaseId[],
-    prompt: '',
+    prompt: 'Build a project that ',
   },
   {
     id: 'code-review',
@@ -51,6 +65,6 @@ export const SUGGESTION_CARDS = [
     title: 'GitHub Sync',
     description: 'Push issues, PRs, and code to GitHub',
     phases: ['planning', 'implementation', 'github_mcp'] as PhaseId[],
-    prompt: '',
+    prompt: 'Sync the following project to GitHub with issues and tracking: ',
   },
 ] as const;

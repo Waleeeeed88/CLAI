@@ -128,15 +128,23 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           }
         }
 
-        // Mark the most recent "writing" file for this agent as done/error
+        // Mark the oldest "writing" file for this agent as done/error.
+        // Using oldest-first (FIFO) ensures correct ordering when multiple
+        // file writes are in flight for the same agent.
+        const isFileResult = event.tool ? FILE_TOOLS.has(event.tool) : false;
         const updatedFiles = [...files];
-        for (let i = updatedFiles.length - 1; i >= 0; i--) {
-          if (updatedFiles[i].agent === event.agent && updatedFiles[i].status === "writing") {
-            updatedFiles[i] = {
-              ...updatedFiles[i],
-              status: event.success ? "done" : "error",
-            };
-            break;
+        if (isFileResult) {
+          for (let i = 0; i < updatedFiles.length; i++) {
+            if (
+              updatedFiles[i].agent === event.agent &&
+              updatedFiles[i].status === "writing"
+            ) {
+              updatedFiles[i] = {
+                ...updatedFiles[i],
+                status: event.success ? "done" : "error",
+              };
+              break;
+            }
           }
         }
         set({ messages: updatedMsgs, files: updatedFiles });
@@ -167,10 +175,18 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         set({ error: event.message ?? "Unknown error", isRunning: false });
         break;
 
+      case "pipeline_complete": {
+        const failed = event.status === "failed";
+        set({
+          isRunning: false,
+          ...(failed && !get().error ? { error: "Pipeline finished with failures — check agent messages above." } : {}),
+        });
+        break;
+      }
+
       case "done":
       case "stage_complete":
       case "workflow_complete":
-      case "pipeline_complete":
         set({ isRunning: false });
         break;
     }

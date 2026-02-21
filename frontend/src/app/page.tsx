@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { startRun, cancelRun, fetchWorkflows } from "../lib/api";
 import { useChatStore } from "../store/chatStore";
 import { useSSE } from "../hooks/useSSE";
@@ -34,8 +34,7 @@ export default function Home() {
       .catch(() => setConnectionError(true));
   }, []);
 
-  const handleEvent = useCallback(processEvent, [processEvent]);
-  useSSE(sessionId, handleEvent);
+  useSSE(sessionId, processEvent);
 
   const handleStart = async (
     requirement: string,

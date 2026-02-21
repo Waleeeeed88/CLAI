@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr = Field(...)
     google_api_key: SecretStr = Field(...)
 
+    # Kimi (Moonshot AI)
+    kimi_api_key: Optional[SecretStr] = Field(default=None)
+
     # GitHub MCP integration
     github_token: Optional[SecretStr] = Field(default=None)
     github_mcp_enabled: bool = Field(default=False)
@@ -27,7 +30,7 @@ class Settings(BaseSettings):
 
     senior_dev_model: str = "claude-opus-4-5-20251101"
     coder_model: str = "claude-sonnet-4-5-20250929"
-    coder_model_2: str = "gemini-3-pro-preview"
+    coder_model_2: str = "gemini-3.1-pro-preview"
     qa_model: str = "gemini-3-flash-preview"
     ba_model: str = "gpt-5.2-2025-12-11"
     reviewer_model: str = "claude-sonnet-4-5-20250929"
@@ -103,6 +106,36 @@ class Settings(BaseSettings):
         return self.github_mcp_args.split() if self.github_mcp_args else []
 
 
+OVERRIDES_FILE = Path(__file__).parent / "overrides.json"
+
+
+def _load_overrides() -> Dict[str, Dict[str, str]]:
+    """Load role overrides from the local JSON file (if it exists)."""
+    if not OVERRIDES_FILE.exists():
+        return {}
+    try:
+        data = json.loads(OVERRIDES_FILE.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    settings = Settings()
+    # Merge file-based overrides on top of env-based overrides
+    file_overrides = _load_overrides()
+    for role_key, cfg in file_overrides.items():
+        if not isinstance(cfg, dict):
+            continue
+        role_key = role_key.lower()
+        if "model" in cfg and cfg["model"]:
+            settings.role_model_overrides[role_key] = cfg["model"]
+        if "provider" in cfg and cfg["provider"]:
+            settings.role_provider_overrides[role_key] = cfg["provider"]
+    return settings
+
+
+def clear_settings_cache() -> None:
+    """Clear the cached settings so the next call reloads from .env + overrides.json."""
+    get_settings.cache_clear()

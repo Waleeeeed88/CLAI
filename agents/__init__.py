@@ -3,6 +3,7 @@ from .base import BaseAgent, AgentResponse, Message, MessageRole, ToolCall, Tool
 from .claude_agent import ClaudeAgent
 from .gpt_agent import GPTAgent
 from .gemini_agent import GeminiAgent
+from .kimi_agent import KimiAgent
 from .factory import AgentFactory, Provider, Role
 
 __all__ = [
@@ -15,6 +16,7 @@ __all__ = [
     "ClaudeAgent",
     "GPTAgent",
     "GeminiAgent",
+    "KimiAgent",
     "AgentFactory",
     "Provider",
     "Role",

@@ -254,6 +254,7 @@ def run_pipeline_async(
                 orch,
                 on_phase_start=on_phase_start,
                 on_phase_done=on_phase_done,
+                cancel_check=lambda: bus.is_cancelled,
             )
             final = pipeline.run(
                 requirement=requirement,

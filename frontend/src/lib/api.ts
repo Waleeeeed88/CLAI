@@ -6,9 +6,7 @@ import {
 const BASE = "http://localhost:8000/api";
 
 export interface StartRunRequest {
-  type: "stage" | "workflow" | "pipeline";
-  stage?: string;
-  workflow?: string;
+  type: "pipeline";
   context?: Record<string, string>;
   requirement?: string;
   project_name?: string;
@@ -46,6 +44,38 @@ export async function cancelRun(sessionId: string): Promise<void> {
 export function getStreamUrl(sessionId: string): string {
   return `${BASE}/chat/${sessionId}/stream`;
 }
+
+// ── Model config ─────────────────────────────────────────────
+
+export interface RoleConfig {
+  provider: string;
+  model: string;
+}
+
+export interface ModelConfigResponse {
+  roles: Record<string, RoleConfig>;
+  providers: string[];
+}
+
+export async function fetchModelConfig(): Promise<ModelConfigResponse> {
+  const res = await fetch(`${BASE}/config/models`);
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  return res.json();
+}
+
+export async function updateModelConfig(
+  overrides: Record<string, RoleConfig>,
+): Promise<ModelConfigResponse> {
+  const res = await fetch(`${BASE}/config/models`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ overrides }),
+  });
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  return res.json();
+}
+
+// ── Filesystem ───────────────────────────────────────────────
 
 export async function fetchFilesystemRoots(): Promise<FilesystemRootsResponse> {
   const res = await fetch(`${BASE}/filesystem/roots`);

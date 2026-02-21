@@ -87,11 +87,13 @@ class ProjectPipeline:
         on_phase_start: Optional[Callable[[str], None]] = None,
         on_step_done: Optional[Callable[[str, str, AgentResponse], None]] = None,
         on_phase_done: Optional[Callable[[PhaseResult], None]] = None,
+        cancel_check: Optional[Callable[[], bool]] = None,
     ):
         self.orch = orchestrator
         self.on_phase_start = on_phase_start
         self.on_step_done = on_step_done
         self.on_phase_done = on_phase_done
+        self._cancel_check = cancel_check
 
     @staticmethod
     def _clip(text: str, max_chars: int) -> str:
@@ -186,6 +188,11 @@ class ProjectPipeline:
             result.status = PhaseStatus.COMPLETED
         return result
 
+    def _check_cancelled(self) -> None:
+        """Raise if the run has been cancelled."""
+        if self._cancel_check and self._cancel_check():
+            raise RuntimeError("Pipeline cancelled by user")
+
     def _ask(
         self,
         phase_name: str,
@@ -194,6 +201,7 @@ class ProjectPipeline:
         prompt: str,
     ) -> AgentResponse:
         """Ask one role for one step and emit callback."""
+        self._check_cancelled()
 
         logger.info("[%s] %s: asking %s", phase_name, step_name, role.value)
         response = self.orch.ask(role, prompt)
@@ -218,7 +226,7 @@ Selected files from the user (optional context):
 {selected_files}
 
 Produce a practical planning package with these actions:
-1. Use write_file to create planning/plan.md with:
+1. Use write_file to create planning/plan.markdown with:
    - scope summary
    - user stories with acceptance criteria
    - implementation slices
@@ -275,13 +283,13 @@ Requirement:
 {requirement}
 
 Break the plan into concrete implementation tasks:
-1. Use write_file to create implementation/task_breakdown.md with:
+1. Use write_file to create implementation/task_breakdown.markdown with:
    - Numbered implementation tasks (TASK-001, TASK-002, etc.)
    - Clear acceptance criteria per task
    - Priority ordering (P0 critical, P1 high, P2 normal)
    - Dependencies between tasks
    - Suggested owner role (coder, coder_2, qa)
-2. Use write_file to create implementation/acceptance_criteria.md with:
+2. Use write_file to create implementation/acceptance_criteria.markdown with:
    - Definition of done per task
    - Business validation rules
    - User-facing expectations
@@ -306,13 +314,13 @@ BA task breakdown:
 {ba_summary}
 
 Design the implementation architecture and coordinate the build:
-1. Use write_file to create implementation/architecture.md with:
+1. Use write_file to create implementation/architecture.markdown with:
    - System architecture (components, data flow, interfaces)
    - Technology decisions and rationale
    - File/module structure to implement
    - Sequencing: which tasks to build first and why
    - Integration points between components
-2. Use write_file to create implementation/coding_guidelines.md with:
+2. Use write_file to create implementation/coding_guidelines.markdown with:
    - Coding standards for this project
    - Error handling patterns
    - Naming conventions
@@ -338,12 +346,12 @@ Architecture design:
 {arch_summary}
 
 Define the test strategy BEFORE coding begins:
-1. Use write_file to create quality/test_strategy.md with:
+1. Use write_file to create quality/test_strategy.markdown with:
    - Test approach per task (unit, integration, e2e)
    - Critical test scenarios and edge cases
    - Quality gates that must pass before code is accepted
    - Risk areas needing extra coverage
-2. Use write_file to create quality/test_cases_spec.md with:
+2. Use write_file to create quality/test_cases_spec.markdown with:
    - Specific test case outlines (TC-001, TC-002, etc.)
    - Input/output expectations
    - Boundary conditions
@@ -374,8 +382,8 @@ Do all of the following:
 2. Implement the primary source files with write_file — follow the architecture design.
 3. Write unit tests alongside your code.
 4. Create or update README/run instructions if needed.
-5. Use write_file to create implementation/coder_summary.md listing what you built.
-{"6. If GitHub MCP tools are available, prepare branch and PR notes in implementation/github_notes.md." if has_github else ""}
+5. Use write_file to create implementation/coder_summary.markdown listing what you built.
+{"6. If GitHub MCP tools are available, prepare branch and PR notes in implementation/github_notes.markdown." if has_github else ""}
 
 Rules:
 - Write real, complete, working code — not stubs or pseudocode.
@@ -404,7 +412,7 @@ Do the following:
 1. Review what the primary coder built — identify gaps or remaining tasks.
 2. Implement any remaining source files, alternative modules, or supporting code.
 3. Add integration tests or additional unit tests for areas the primary coder missed.
-4. Use write_file to create implementation/coder2_summary.md with what you built and any concerns.
+4. Use write_file to create implementation/coder2_summary.markdown with what you built and any concerns.
 
 Rules:
 - Don't duplicate what the primary coder already built.
@@ -433,14 +441,14 @@ Implementation summary (both coders):
 
 Review the implementation:
 1. Use read_file and get_tree to inspect what was built.
-2. Use write_file to create review/code_review.md with:
+2. Use write_file to create review/code_review.markdown with:
    - Review verdict: APPROVED / CHANGES_REQUESTED / BLOCKED
    - Issues found (severity: critical, major, minor)
    - Architecture compliance check
    - Code quality assessment
    - Security concerns
    - Performance concerns
-3. If critical issues are found, use write_file to document required fixes in review/required_fixes.md.
+3. If critical issues are found, use write_file to document required fixes in review/required_fixes.markdown.
 
 Rules:
 - Be thorough but pragmatic — not every style preference is a blocker.
@@ -465,14 +473,14 @@ Implementation summary:
 {all_code_summary}
 
 Provide the final sign-off assessment:
-1. Use write_file to create implementation/implementation_summary.md with:
+1. Use write_file to create implementation/implementation_summary.markdown with:
    - Overall status: APPROVED / NEEDS_WORK
    - What was built (files, features, tests)
    - What's still pending or deferred
    - Acceptance criteria pass/fail per BA task
    - Architecture compliance per senior dev design
    - Key risks going forward
-2. Use write_file to create quality/final_assessment.md with quality summary.
+2. Use write_file to create quality/final_assessment.markdown with quality summary.
 
 Rules:
 - Be honest about gaps — don't rubber-stamp incomplete work.
@@ -497,7 +505,7 @@ Do all of the following:
    - suite_name: "{project} core test plan"
    - test_cases: JSON array with id, title, steps, expected_result, priority, status, category
 3. Use write_file to create quality/issues_for_tracking.txt with defects/risks found.
-4. If run_tests is available, run relevant tests and report outcomes in quality/test_results.md.
+4. If run_tests is available, run relevant tests and report outcomes in quality/test_results.markdown.
 
 Rules:
 - Ensure the Excel tool call is actually executed.
@@ -543,11 +551,11 @@ Execute GitHub synchronization tasks using MCP tools:
 1. Ensure repository exists for this project (create_repository if needed).
 2. Create GitHub issues from planning/issues.txt content (or planning summary when needed).
 3. Label issues by priority/area where possible.
-4. Use write_file to create github/github_sync.md summarizing repo, issues, and next actions.
+4. Use write_file to create github/github_sync.markdown summarizing repo, issues, and next actions.
 
 Rules:
 - Actually call GitHub tools; do not just describe what you would do.
-- If any GitHub action fails, record fallback instructions in github/github_sync.md.
+- If any GitHub action fails, record fallback instructions in github/github_sync.markdown.
 """
             gh_resp = self._ask("github_mcp", "ba_github_sync", Role.BA, github_prompt)
             outputs["ba_github_sync"] = gh_resp
@@ -564,8 +572,8 @@ Planning summary:
 
 Create local issue tracking artifacts using write_file:
 1. github/issues_local.txt - issues in a machine-friendly line format.
-2. github/issues_board.md - grouped by priority and status.
-3. github/github_mcp_fallback.md - exact steps to sync these issues to GitHub later.
+2. github/issues_board.markdown - grouped by priority and status.
+3. github/github_mcp_fallback.markdown - exact steps to sync these issues to GitHub later.
 
 Rules:
 - Do not use GitHub tools.

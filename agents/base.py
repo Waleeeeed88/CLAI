@@ -6,11 +6,15 @@ from enum import Enum
 from datetime import datetime
 import json
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
 MAX_TOOL_CALL_ITERATIONS = 25
 MAX_TOOL_RESULT_CHARS = 4000
+DEFAULT_REQUEST_TIMEOUT = 300  # 5 minutes per LLM call
+DEFAULT_RETRY_ATTEMPTS = 3
+DEFAULT_RETRY_BASE_DELAY = 8.0
 
 
 class MessageRole(Enum):
@@ -110,6 +114,35 @@ class BaseAgent(ABC):
         if max_chars <= len(suffix):
             return text[:max_chars]
         return f"{text[: max_chars - len(suffix)].rstrip()}{suffix}"
+
+    @staticmethod
+    def _is_rate_limit_error(exc: Exception) -> bool:
+        """Check if an exception is a rate limit / 429 error."""
+        msg = str(exc).lower()
+        name = type(exc).__name__.lower()
+        return (
+            "rate_limit" in msg
+            or "rate limit" in msg
+            or "429" in msg
+            or "ratelimiterror" in name
+            or "resourceexhausted" in name
+        )
+
+    def _retry_request(self, fn, *, attempts: int = DEFAULT_RETRY_ATTEMPTS, base_delay: float = DEFAULT_RETRY_BASE_DELAY):
+        """Call fn() with exponential-backoff retries on rate-limit errors."""
+        for attempt in range(attempts):
+            try:
+                return fn()
+            except Exception as exc:
+                if not self._is_rate_limit_error(exc) or attempt >= (attempts - 1):
+                    raise
+                delay = base_delay * (2 ** attempt)
+                logger.warning(
+                    "%s rate-limited (attempt %d/%d), retrying in %.1fs",
+                    self.provider_name, attempt + 1, attempts, delay,
+                )
+                time.sleep(delay)
+        raise RuntimeError(f"{self.provider_name} request failed after {attempts} retries.")
 
     @property
     @abstractmethod

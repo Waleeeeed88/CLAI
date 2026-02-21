@@ -3,7 +3,7 @@ import json
 from typing import Any, Dict, List
 from openai import OpenAI
 
-from .base import BaseAgent, AgentResponse, Message, MessageRole, ToolCall
+from .base import BaseAgent, AgentResponse, Message, MessageRole, ToolCall, DEFAULT_REQUEST_TIMEOUT
 from config import get_settings
 
 
@@ -14,7 +14,10 @@ class GPTAgent(BaseAgent):
 
     def _initialize_client(self) -> None:
         settings = get_settings()
-        self._client = OpenAI(api_key=settings.openai_api_key.get_secret_value())
+        self._client = OpenAI(
+            api_key=settings.openai_api_key.get_secret_value(),
+            timeout=DEFAULT_REQUEST_TIMEOUT,
+        )
 
     # ── message conversion ───────────────────────────────────────────
 
@@ -79,7 +82,9 @@ class GPTAgent(BaseAgent):
         if self.tool_registry and len(self.tool_registry) > 0:
             request_params["tools"] = self.tool_registry.to_openai_format()
 
-        response = self._client.chat.completions.create(**request_params)
+        response = self._retry_request(
+            lambda: self._client.chat.completions.create(**request_params)
+        )
 
         choice = response.choices[0]
         content = choice.message.content or ""
@@ -106,10 +111,7 @@ class GPTAgent(BaseAgent):
                 "total_tokens": response.usage.total_tokens,
             }
 
-        # Map OpenAI's finish_reason to the canonical name used in base loop
         finish_reason = choice.finish_reason
-        if finish_reason == "tool_calls":
-            finish_reason = "tool_calls"  # already matches
 
         return AgentResponse(
             content=content,

@@ -11,6 +11,10 @@ export function useSSE(
   onEvent: (event: SSEEvent) => void,
 ) {
   const retriesRef = useRef(0);
+  // Keep a stable ref to onEvent so the effect doesn't re-run when the
+  // callback identity changes (zustand store functions change every render).
+  const onEventRef = useRef(onEvent);
+  onEventRef.current = onEvent;
 
   useEffect(() => {
     if (!sessionId) return;
@@ -28,9 +32,11 @@ export function useSSE(
         try {
           const event = JSON.parse(e.data) as SSEEvent;
           retriesRef.current = 0;
-          onEvent(event);
+          onEventRef.current(event);
 
-          if (event.type === "done" || event.type === "error") {
+          // Only close on terminal "done" — errors from backend may be
+          // per-agent and the pipeline can continue after them.
+          if (event.type === "done") {
             es?.close();
           }
         } catch {
@@ -45,7 +51,7 @@ export function useSSE(
           retriesRef.current += 1;
           setTimeout(connect, RETRY_DELAY_MS * retriesRef.current);
         } else {
-          onEvent({
+          onEventRef.current({
             type: "error",
             message: "Lost connection to server",
           } as SSEEvent);
@@ -59,5 +65,5 @@ export function useSSE(
       closed = true;
       es?.close();
     };
-  }, [sessionId, onEvent]);
+  }, [sessionId]); // Only re-run when sessionId changes
 }

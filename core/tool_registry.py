@@ -80,12 +80,45 @@ class ToolDefinition:
             },
         }
 
+    @staticmethod
+    def _convert_schema_for_gemini(schema: Dict[str, Any]) -> Dict[str, Any]:
+        """Convert JSON Schema string types to Gemini protobuf Type enums.
+
+        Gemini's FunctionDeclaration expects ``Type`` enum values
+        (``Type.OBJECT``, ``Type.STRING``, etc.) not the JSON Schema
+        string literals ``"object"``, ``"string"``, etc.
+        """
+        import google.generativeai as genai
+
+        _TYPE_MAP = {
+            "object": genai.protos.Type.OBJECT,
+            "string": genai.protos.Type.STRING,
+            "number": genai.protos.Type.NUMBER,
+            "integer": genai.protos.Type.INTEGER,
+            "boolean": genai.protos.Type.BOOLEAN,
+            "array": genai.protos.Type.ARRAY,
+        }
+        converted: Dict[str, Any] = {}
+        for key, value in schema.items():
+            if key == "type" and isinstance(value, str):
+                converted[key] = _TYPE_MAP.get(value, value)
+            elif key == "properties" and isinstance(value, dict):
+                converted[key] = {
+                    k: ToolDefinition._convert_schema_for_gemini(v)
+                    for k, v in value.items()
+                }
+            elif key == "items" and isinstance(value, dict):
+                converted[key] = ToolDefinition._convert_schema_for_gemini(value)
+            else:
+                converted[key] = value
+        return converted
+
     def to_gemini(self) -> Dict[str, Any]:
         """Return a dict usable as a Gemini FunctionDeclaration."""
         return {
             "name": self.name,
             "description": self.description,
-            "parameters": self._build_json_schema(),
+            "parameters": self._convert_schema_for_gemini(self._build_json_schema()),
         }
 
 

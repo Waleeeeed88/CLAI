@@ -25,3 +25,17 @@ class WorkflowListResponse(BaseModel):
     workflows: List[str]
     stages: List[str]
     stage_details: Dict[str, Dict[str, str]]
+
+
+class RoleConfig(BaseModel):
+    provider: str
+    model: str
+
+
+class ModelConfigResponse(BaseModel):
+    roles: Dict[str, RoleConfig]
+    providers: List[str]
+
+
+class ModelConfigRequest(BaseModel):
+    overrides: Dict[str, RoleConfig]
