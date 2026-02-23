@@ -28,8 +28,8 @@ module.exports = {
         },
       },
       fontFamily: {
-        sans: ['Inter', ...fontFamily.sans],
-        mono: ['JetBrains Mono', 'Fira Code', ...fontFamily.mono],
+        sans: ['Space Grotesk', ...fontFamily.sans],
+        mono: ['IBM Plex Mono', ...fontFamily.mono],
       },
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',

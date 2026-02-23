@@ -166,6 +166,11 @@ export function SettingsDrawer({ open, onClose }: Props) {
                             <span className="text-xs font-medium text-clai-text">
                               {agent.label}
                             </span>
+                            {role === "coder_2" && (
+                              <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-cyan-200">
+                                Preferred: Kimi
+                              </span>
+                            )}
                           </div>
 
                           {/* Provider dropdown */}

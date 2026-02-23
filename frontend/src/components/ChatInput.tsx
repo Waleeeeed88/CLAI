@@ -2,11 +2,12 @@
 
 import { useRef, useState, useCallback, useEffect } from "react";
 import {
-  Send, Square, Paperclip, Settings2, ChevronDown,
+  Send, Square, Paperclip, ChevronDown,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "../lib/cn";
 import { PHASES, type PhaseId } from "../lib/constants";
+import { getUserConfig } from "../lib/storage";
 import { DirectoryPickerModal } from "./DirectoryPickerModal";
 
 interface Props {
@@ -43,7 +44,23 @@ export function ChatInput({
   const [useGithub, setUseGithub] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [configLoaded, setConfigLoaded] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Load persisted config on mount
+  useEffect(() => {
+    const cfg = getUserConfig();
+    if (cfg.lastWorkspace) setWorkspaceDir(cfg.lastWorkspace);
+    if (cfg.lastProjectName) setProjectName(cfg.lastProjectName);
+    setConfigLoaded(true);
+  }, []);
+
+  // Auto-show config panel if workspace is empty (first time user)
+  useEffect(() => {
+    if (configLoaded && !workspaceDir) {
+      setShowConfig(true);
+    }
+  }, [configLoaded, workspaceDir]);
 
   // Apply initial prompt/phases from WelcomeScreen card click
   useEffect(() => {
@@ -80,6 +97,7 @@ export function ChatInput({
       selectedFiles,
     });
     setValue("");
+    setShowConfig(false);
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
@@ -125,19 +143,25 @@ export function ChatInput({
                 <button
                   onClick={() => setShowConfig((v) => !v)}
                   disabled={isRunning}
-                  title="Settings"
+                  title="Project settings"
                   className={cn(
-                    "p-1.5 rounded-lg transition-colors disabled:opacity-40",
+                    "p-1.5 rounded-lg transition-colors disabled:opacity-40 flex items-center gap-1",
                     showConfig
                       ? "text-clai-accent bg-clai-accent/10"
                       : "text-clai-muted hover:text-clai-text hover:bg-clai-surface",
                   )}
                 >
-                  <Settings2 className="w-4 h-4" />
+                  <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", showConfig && "rotate-180")} />
+                  <span className="text-[10px] hidden sm:inline">Config</span>
                 </button>
+                {workspaceDir && (
+                  <span className="text-[10px] text-clai-muted ml-1 truncate max-w-[120px]" title={workspaceDir}>
+                    {workspaceDir.split(/[\\/]/).pop()}
+                  </span>
+                )}
                 {selectedFiles.length > 0 && (
                   <span className="text-[10px] text-clai-muted ml-1">
-                    {selectedFiles.length} file{selectedFiles.length > 1 ? "s" : ""}
+                    +{selectedFiles.length} file{selectedFiles.length > 1 ? "s" : ""}
                   </span>
                 )}
               </div>
@@ -231,7 +255,7 @@ export function ChatInput({
                         onChange={(e) => setUseGithub(e.target.checked)}
                         className="accent-clai-accent"
                       />
-                      Enable GitHub sync
+                      GitHub sync
                     </label>
                   </div>
                 </div>

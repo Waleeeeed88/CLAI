@@ -1,10 +1,10 @@
 export const AGENTS = {
-  senior_dev: { label: 'Senior Dev', color: '#a78bfa', icon: 'Crown' as const },
-  coder:      { label: 'Coder',      color: '#60a5fa', icon: 'Code2' as const },
-  coder_2:    { label: 'Coder 2',    color: '#22d3ee', icon: 'Braces' as const },
-  qa:         { label: 'QA',         color: '#34d399', icon: 'TestTube2' as const },
-  ba:         { label: 'Analyst',    color: '#fbbf24', icon: 'FileSearch' as const },
-  reviewer:   { label: 'Reviewer',   color: '#fb7185', icon: 'Eye' as const },
+  senior_dev: { label: "Senior Architect", color: "#f59e0b", icon: "Crown" as const },
+  coder: { label: "Product Engineer", color: "#38bdf8", icon: "Code2" as const },
+  coder_2: { label: "Kimi Full-Stack", color: "#14b8a6", icon: "Braces" as const },
+  qa: { label: "QA", color: "#22c55e", icon: "TestTube2" as const },
+  ba: { label: "Analyst", color: "#f97316", icon: "FileSearch" as const },
+  reviewer: { label: "Reviewer", color: "#fb7185", icon: "Eye" as const },
 } as const;
 
 export type AgentRole = keyof typeof AGENTS;
@@ -32,6 +32,14 @@ export const DEFAULT_MODELS: Record<string, string[]> = {
 };
 
 export const SUGGESTION_CARDS = [
+  {
+    id: "kimi-dashboard",
+    title: "Kimi Dashboard Build",
+    description: "Run Kimi as full-stack engineer for a premium manager dashboard",
+    phases: ["planning", "implementation"] as PhaseId[],
+    prompt:
+      "Use Kimi as the full-stack engineer and build a polished manager dashboard with KPI cards, timeline, and responsive frontend UX: ",
+  },
   {
     id: 'new-project',
     title: 'New Project',

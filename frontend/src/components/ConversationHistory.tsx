@@ -1,15 +1,9 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { X, MessageSquare, Trash2 } from "lucide-react";
+import { X, MessageSquare, Trash2, Clock } from "lucide-react";
 import { cn } from "../lib/cn";
-
-export interface ConversationSummary {
-  id: string;
-  title: string;
-  messageCount: number;
-  createdAt: number;
-}
+import type { ConversationSummary } from "../lib/storage";
 
 interface Props {
   open: boolean;
@@ -18,6 +12,17 @@ interface Props {
   activeId: string | null;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
+}
+
+function timeAgo(timestamp: number): string {
+  const diff = Date.now() - timestamp;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
 }
 
 export function ConversationHistory({
@@ -80,9 +85,11 @@ export function ConversationHistory({
                       <div className="text-xs text-clai-text truncate font-medium">
                         {conv.title}
                       </div>
-                      <div className="text-[10px] text-clai-muted mt-0.5">
-                        {conv.messageCount} messages &middot;{" "}
-                        {new Date(conv.createdAt).toLocaleDateString()}
+                      <div className="text-[10px] text-clai-muted mt-0.5 flex items-center gap-1">
+                        {conv.messageCount} messages
+                        <span className="text-clai-border">·</span>
+                        <Clock className="w-2.5 h-2.5" />
+                        {timeAgo(conv.updatedAt)}
                       </div>
                     </div>
                     <button

@@ -1,20 +1,23 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --bg: #060b17;
-  --text: #d6e2f2;
-  --muted: #8b9cb8;
-  --card: #0f172a;
-  --border: #1e293b;
+  --bg: #050b17;
+  --text: #d8e4f7;
+  --muted: #95a8c8;
+  --card: #101a2d;
+  --border: #1d2b43;
 }
 
 html, body, #__next {
   height: 100%;
-  background: var(--bg);
+  background:
+    radial-gradient(circle at 12% 10%, rgba(34, 211, 238, 0.12), transparent 35%),
+    radial-gradient(circle at 88% 8%, rgba(16, 185, 129, 0.1), transparent 35%),
+    var(--bg);
   color: var(--text);
 }
 
