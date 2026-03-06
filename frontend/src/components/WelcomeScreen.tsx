@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import {
-  Rocket, Search, Cpu, TestTube2, GitBranch, Sparkles,
+  Rocket, Search, Cpu, TestTube2, GitBranch,
   MessageSquare, Clock,
 } from "lucide-react";
 import { cn } from "../lib/cn";
@@ -15,7 +15,6 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   "architecture": Cpu,
   "testing": TestTube2,
   "github-sync": GitBranch,
-  "kimi-dashboard": Sparkles,
 };
 
 interface Props {

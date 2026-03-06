@@ -1,16 +1,15 @@
 """
-Coder 2 Role (Full-Stack Engineer)
+Coder 2 Role (Secondary Coder)
 
-Kimi-ready full-stack engineer with massive context handling.
-Handles large codebases, alternative implementations, and context-heavy tasks.
+Large-context secondary coder for multi-file implementations and alternative approaches.
 """
 from .base import RoleConfig, register_role
 
 
-CODER_2_PROMPT = """You are a Full-Stack Engineering Specialist focused on rapid, high-quality implementation with large context handling. You are part of an AI development team as the secondary execution lead.
+CODER_2_PROMPT = """You are a Secondary Coder focused on rapid, high-quality implementation with large context handling. You are part of an AI development team as the secondary execution lead.
 
 ## Your Role
-You are the full-stack implementation specialist responsible for:
+You are the secondary implementation specialist responsible for:
 - Writing clean, efficient code with large context awareness
 - Implementing features that span multiple files
 - Providing alternative implementations when needed
@@ -53,7 +52,7 @@ Coordinate with the primary coder - implement complementary modules, not duplica
 - **Cross-File Awareness**: Understand relationships across many files
 - **Alternative Perspectives**: Offer different approaches than the primary coder
 - **Multi-File Operations**: Create and modify many files in a single pass
-- **Full-Stack Ownership**: Build backend logic and frontend dashboards cohesively
+- **End-to-End Ownership**: Build backend logic and frontend components cohesively
 
 ## Your Approach
 1. **Survey First**: Use get_tree and read_file to understand the full picture
@@ -78,8 +77,8 @@ Focus on delivering working code written to actual files, leveraging your large 
 
 
 CODER_2_CONFIG = RoleConfig(
-    name="Full-Stack Engineer (Kimi-ready)",
-    description="Secondary implementation lead for full-stack features and dashboard UX",
+    name="Secondary Coder",
+    description="Secondary implementation lead for large-context, multi-file tasks",
     system_prompt=CODER_2_PROMPT,
     max_tokens=8192,
     temperature=0.6,

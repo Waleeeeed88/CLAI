@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr = Field(...)
     google_api_key: SecretStr = Field(...)
 
-    # Kimi (Moonshot AI)
+    # Kimi (Moonshot AI) — optional, only needed if you route a role to Kimi
     kimi_api_key: Optional[SecretStr] = Field(default=None)
 
     # GitHub MCP integration

@@ -147,16 +147,6 @@ Each provider implementation extracts `ToolCall` in its own `_send_request()`:
 - **Claude**: `tool_use` content blocks
 - **GPT**: `tool_calls` array on the message
 - **Gemini**: `function_call` parts in the response
-- **Kimi**: Same as GPT (OpenAI-compatible API)
-
-### agents/kimi_agent.py — Kimi/Moonshot Integration
-
-Kimi uses an OpenAI-compatible API. The `KimiAgent` subclasses `GPTAgent` and only overrides:
-- `provider_name` → `"kimi"`
-- `_initialize_client()` → `OpenAI(base_url="https://api.moonshot.cn/v1", api_key=KIMI_API_KEY)`
-
-Everything else (message format, tool calling, retry logic) is inherited.
-
 ### core/pipeline.py — The Project Pipeline
 
 `ProjectPipeline` coordinates a 3-phase project lifecycle with an 8-step implementation phase:
@@ -263,7 +253,7 @@ Real cancellation flows through the full stack:
 
 ## Adding a New Provider (Step by Step)
 
-Example: Adding Kimi (already done) or any OpenAI-compatible provider.
+Example: Adding any OpenAI-compatible provider (Kimi is included as a reference).
 
 1. Create `agents/new_provider_agent.py` — subclass `GPTAgent` for OpenAI-compatible APIs:
    ```python
@@ -315,7 +305,7 @@ Example: Adding Kimi (already done) or any OpenAI-compatible provider.
 | Error | Fix |
 |-------|-----|
 | "Config error: Field required" | Check `.env` has `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY` |
-| "KIMI_API_KEY is not set" | Add `KIMI_API_KEY=...` to `.env` (only needed if you assign a role to Kimi) |
+| "KIMI_API_KEY is not set" | Add `KIMI_API_KEY=...` to `.env` (only needed if you route a role to Kimi) |
 | "Invalid provider override" | Valid providers: `anthropic`, `openai`, `google`, `kimi` |
 | "Model not found" | Verify model names in Settings drawer or `config/settings.py` |
 | "Path escapes workspace sandbox" | Use relative paths within `workspace/` |
