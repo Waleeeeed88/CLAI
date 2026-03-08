@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle2, XCircle, FileCode2, Clock } from "lucide-react";
+import { CheckCircle2, XCircle } from "lucide-react";
 import { ChatMessage, PhaseEvent, FileEntry } from "../lib/types";
 import { MessageBubble } from "./MessageBubble";
 import { AgentActivityCard } from "./AgentActivityCard";
@@ -44,7 +44,7 @@ export function ChatWindow({
 
   const onScroll = () => {
     const el = scrollRef.current;
-    if (el) pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    if (el) pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 96;
   };
 
   const empty = messages.length === 0 && phases.length === 0 && !isRunning;
@@ -53,7 +53,7 @@ export function ChatWindow({
     <div
       ref={scrollRef}
       onScroll={onScroll}
-      className="flex-1 overflow-y-auto bg-clai-bg"
+      className="flex-1 overflow-y-auto px-3 py-3 lg:px-5 lg:py-5"
     >
       {empty ? (
         <WelcomeScreen
@@ -62,48 +62,46 @@ export function ChatWindow({
           onSelectConversation={onSelectConversation}
         />
       ) : (
-        <div className="max-w-3xl mx-auto px-4 py-4">
-          {/* Phase timeline */}
+        <div className="mx-auto flex max-w-5xl flex-col gap-4">
           {phases.length > 0 && (
-            <div className="mb-4 rounded-xl border border-clai-border bg-clai-surface/40 py-2">
+            <div className="panel-shell glass-line rounded-[28px] border border-white/8 bg-white/[0.04] px-4 py-3">
               <PhaseTimeline phases={phases} />
             </div>
           )}
 
-          {/* Messages — streaming ones show as activity cards */}
-          <AnimatePresence mode="popLayout">
-            {messages.map((msg) =>
-              msg.isStreaming ? (
-                <AgentActivityCard
-                  key={msg.id}
-                  agent={msg.agent}
-                  toolCalls={msg.toolCalls}
-                />
-              ) : (
-                <MessageBubble key={msg.id} message={msg} />
-              ),
+          <div className="rounded-[32px] border border-white/8 bg-white/[0.025] p-3 sm:p-4 lg:p-5">
+            <AnimatePresence mode="popLayout">
+              {messages.map((msg) =>
+                msg.isStreaming ? (
+                  <AgentActivityCard
+                    key={msg.id}
+                    agent={msg.agent}
+                    toolCalls={msg.toolCalls}
+                  />
+                ) : (
+                  <MessageBubble key={msg.id} message={msg} />
+                ),
+              )}
+            </AnimatePresence>
+
+            {error && (
+              <div className="mt-4 rounded-[22px] border border-clai-error/20 bg-clai-error/10 px-4 py-3 text-sm text-clai-error">
+                {error}
+              </div>
             )}
-          </AnimatePresence>
 
-          {/* Error display */}
-          {error && (
-            <div className="mt-3 rounded-lg border border-clai-error/20 bg-clai-error/5 px-4 py-3 text-sm text-clai-error">
-              {error}
-            </div>
-          )}
+            {!isRunning && messages.length > 0 && !messages.some((m) => m.isStreaming) && (
+              <CompletionSummary
+                messages={messages}
+                phases={phases}
+                files={files}
+                error={error}
+                startedAt={startedAt}
+              />
+            )}
 
-          {/* Completion summary */}
-          {!isRunning && messages.length > 0 && !messages.some((m) => m.isStreaming) && (
-            <CompletionSummary
-              messages={messages}
-              phases={phases}
-              files={files}
-              error={error}
-              startedAt={startedAt}
-            />
-          )}
-
-          <div ref={endRef} className="h-4" />
+            <div ref={endRef} className="h-4" />
+          </div>
         </div>
       )}
     </div>
@@ -124,55 +122,57 @@ function CompletionSummary({
   startedAt: number | null;
 }) {
   const totalTokens = useMemo(
-    () => messages.reduce((sum, m) => sum + (m.tokens ?? 0), 0),
+    () => messages.reduce((sum, message) => sum + (message.tokens ?? 0), 0),
     [messages],
   );
   const totalDuration = useMemo(
-    () => phases.reduce((sum, p) => sum + (p.duration ?? 0), 0),
+    () => phases.reduce((sum, phase) => sum + (phase.duration ?? 0), 0),
     [phases],
   );
-  const doneFiles = files.filter((f) => f.status === "done").length;
-  const hasError = !!error;
+  const doneFiles = files.filter((file) => file.status === "done").length;
+  const hasError = Boolean(error);
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className={`mt-4 rounded-xl border p-4 ${
-        hasError
-          ? "border-clai-error/20 bg-clai-error/5"
-          : "border-emerald-400/20 bg-emerald-400/5"
-      }`}
+      className={hasError
+        ? "mt-5 rounded-[24px] border border-clai-error/20 bg-clai-error/10 p-4"
+        : "mt-5 rounded-[24px] border border-white/8 bg-white/[0.04] p-4"}
     >
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2">
         {hasError ? (
-          <XCircle className="w-4 h-4 text-clai-error" />
+          <XCircle className="h-4 w-4 text-clai-error" />
         ) : (
-          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+          <CheckCircle2 className="h-4 w-4 text-clai-text" />
         )}
-        <span className={`text-sm font-medium ${hasError ? "text-clai-error" : "text-emerald-300"}`}>
-          {hasError ? "Pipeline completed with errors" : "Pipeline completed"}
+        <span className={hasError ? "text-sm font-medium text-clai-error" : "text-sm font-medium text-clai-text"}>
+          {hasError ? "Pipeline completed with issues" : "Pipeline completed"}
         </span>
       </div>
-      <div className="grid grid-cols-3 gap-3 text-center">
-        <div>
-          <p className="text-lg font-semibold text-clai-text">{messages.length}</p>
-          <p className="text-[10px] text-clai-muted uppercase tracking-wider">Responses</p>
-        </div>
-        <div>
-          <p className="text-lg font-semibold text-clai-text">{doneFiles}</p>
-          <p className="text-[10px] text-clai-muted uppercase tracking-wider">Files</p>
-        </div>
-        <div>
-          <p className="text-lg font-semibold text-clai-text">
-            {totalTokens > 0 ? totalTokens.toLocaleString() : totalDuration > 0 ? `${totalDuration.toFixed(0)}s` : "--"}
-          </p>
-          <p className="text-[10px] text-clai-muted uppercase tracking-wider">
-            {totalTokens > 0 ? "Tokens" : "Duration"}
-          </p>
-        </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-4">
+        <SummaryMetric label="Responses" value={`${messages.length}`} />
+        <SummaryMetric label="Files" value={`${doneFiles}`} />
+        <SummaryMetric
+          label={totalTokens > 0 ? "Tokens" : "Duration"}
+          value={totalTokens > 0 ? totalTokens.toLocaleString() : totalDuration > 0 ? `${totalDuration.toFixed(0)}s` : "--"}
+        />
+        <SummaryMetric
+          label="Started"
+          value={startedAt ? new Date(startedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}
+        />
       </div>
     </motion.div>
+  );
+}
+
+function SummaryMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[18px] border border-white/8 bg-black/10 px-3 py-3 text-center">
+      <p className="text-[10px] uppercase tracking-[0.18em] text-clai-muted">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-clai-text">{value}</p>
+    </div>
   );
 }

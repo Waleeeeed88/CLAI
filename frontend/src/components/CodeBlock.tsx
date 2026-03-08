@@ -39,9 +39,9 @@ export function CodeBlock({ code, language }: Props) {
   };
 
   return (
-    <div className="group relative my-2 rounded-lg border border-clai-border bg-[#0b1220] overflow-hidden">
+    <div className="group relative my-2 overflow-hidden rounded-lg border border-clai-border bg-clai-surface">
       {/* Header bar */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-clai-surface/60 border-b border-clai-border">
+      <div className="flex items-center justify-between border-b border-clai-border bg-white/[0.03] px-3 py-1.5">
         <span className="text-[10px] font-mono text-clai-muted uppercase tracking-wider">
           {lang}
         </span>

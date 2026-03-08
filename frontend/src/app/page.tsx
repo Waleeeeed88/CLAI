@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { AnimatePresence } from "framer-motion";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { startRun, cancelRun, fetchWorkflows } from "../lib/api";
 import { useChatStore } from "../store/chatStore";
 import { useSSE } from "../hooks/useSSE";
@@ -11,10 +10,11 @@ import type { ConversationSummary } from "../lib/storage";
 import { TopBar } from "../components/TopBar";
 import { ChatWindow } from "../components/ChatWindow";
 import { ChatInput } from "../components/ChatInput";
-import { ExecutionPanel } from "../components/ExecutionPanel";
 import { SettingsDrawer } from "../components/SettingsDrawer";
-import { ConversationHistory } from "../components/ConversationHistory";
+import { RightRail } from "../components/RightRail";
 import { Sidebar } from "../components/Sidebar";
+
+type RightRailTab = "history" | "execution";
 
 export default function Home() {
   const {
@@ -25,13 +25,12 @@ export default function Home() {
 
   const [connectionError, setConnectionError] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
+  const [showMobileRail, setShowMobileRail] = useState(false);
+  const [activeRailTab, setActiveRailTab] = useState<RightRailTab>("history");
+  const [historyQuery, setHistoryQuery] = useState("");
 
-  // For passing suggestion card selections to ChatInput
   const [pendingPrompt, setPendingPrompt] = useState<string | undefined>(undefined);
   const [pendingPhases, setPendingPhases] = useState<PhaseId[] | undefined>(undefined);
-
-  // Conversation list from localStorage
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
 
   const refreshConversations = useCallback(() => {
@@ -42,14 +41,11 @@ export default function Home() {
     refreshConversations();
   }, [refreshConversations]);
 
-  // Refresh conversation list when a session completes
   useEffect(() => {
     if (!isRunning && messages.length > 0) {
       refreshConversations();
     }
   }, [isRunning, messages.length, refreshConversations]);
-
-  const hasContent = messages.length > 0 || isRunning;
 
   useEffect(() => {
     fetchWorkflows()
@@ -58,6 +54,12 @@ export default function Home() {
   }, []);
 
   useSSE(sessionId, processEvent);
+
+  const filteredConversations = useMemo(() => {
+    const q = historyQuery.trim().toLowerCase();
+    if (!q) return conversations;
+    return conversations.filter((conv) => conv.title.toLowerCase().includes(q));
+  }, [conversations, historyQuery]);
 
   const handleStart = async (
     requirement: string,
@@ -74,6 +76,7 @@ export default function Home() {
       lastWorkspace: runOpts.workspaceDir,
       lastProjectName: runOpts.projectName,
     });
+    setActiveRailTab("execution");
     const context: Record<string, string> = {};
     if (runOpts.workspaceDir.trim()) context.workspace_dir = runOpts.workspaceDir.trim();
     try {
@@ -109,12 +112,15 @@ export default function Home() {
     reset();
     setPendingPrompt(undefined);
     setPendingPhases(undefined);
+    setActiveRailTab("history");
+    setHistoryQuery("");
     refreshConversations();
   };
 
   const handleSelectConversation = (id: string) => {
     loadSession(id);
-    setShowHistory(false);
+    setShowMobileRail(false);
+    setActiveRailTab("history");
   };
 
   const handleDeleteConversation = (id: string) => {
@@ -122,70 +128,79 @@ export default function Home() {
     refreshConversations();
   };
 
+  const openRail = (tab: RightRailTab) => {
+    setActiveRailTab(tab);
+    setShowMobileRail(true);
+  };
+
   return (
-    <div className="flex h-full bg-clai-bg text-clai-text">
-      <Sidebar
-        onToggleHistory={() => setShowHistory((v) => !v)}
-        onToggleSettings={() => setShowSettings((v) => !v)}
-        onNewChat={handleNewChat}
-        hasContent={hasContent}
-      />
-
-      <main className="flex-1 flex flex-col min-w-0">
-        <TopBar
-          isRunning={isRunning}
-          messageCount={messages.length}
-          error={error}
-          connectionError={connectionError}
+    <div className="min-h-screen bg-transparent">
+      <div className="app-shell glass-line flex h-screen w-screen overflow-hidden">
+        <Sidebar
+          onOpenHistory={() => openRail("history")}
+          onToggleSettings={() => setShowSettings((v) => !v)}
           onNewChat={handleNewChat}
+          isRunning={isRunning}
         />
-        <div className="flex-1 flex min-h-0">
-          <div className="flex-1 flex flex-col min-w-0">
-            <ChatWindow
-              messages={messages}
-              phases={phases}
-              files={files}
-              isRunning={isRunning}
-              error={error}
-              startedAt={startedAt}
-              onSuggestionSelect={handleSuggestionSelect}
-              recentConversations={conversations.slice(0, 5)}
-              onSelectConversation={handleSelectConversation}
-            />
-            <ChatInput
-              isRunning={isRunning}
-              onSend={handleStart}
-              onStop={handleStop}
-              initialPrompt={pendingPrompt}
-              initialPhases={pendingPhases}
-            />
-          </div>
 
-          {/* Inline execution panel — visible when there's content */}
-          <AnimatePresence>
-            {hasContent && (
-              <ExecutionPanel
-                agentStatuses={agentStatuses}
+        <main className="flex min-w-0 flex-1 flex-col">
+          <TopBar
+            isRunning={isRunning}
+            messageCount={messages.length}
+            error={error}
+            connectionError={connectionError}
+            searchValue={historyQuery}
+            onSearchChange={setHistoryQuery}
+            onOpenHistory={() => openRail("history")}
+            onOpenExecution={() => openRail("execution")}
+            activeRailTab={activeRailTab}
+            onNewChat={handleNewChat}
+          />
+
+          <div className="flex min-h-0 flex-1">
+            <div className="flex min-w-0 flex-1 flex-col">
+              <ChatWindow
+                messages={messages}
                 phases={phases}
                 files={files}
                 isRunning={isRunning}
+                error={error}
                 startedAt={startedAt}
+                onSuggestionSelect={handleSuggestionSelect}
+                recentConversations={filteredConversations.slice(0, 5)}
+                onSelectConversation={handleSelectConversation}
               />
-            )}
-          </AnimatePresence>
-        </div>
-      </main>
+              <ChatInput
+                isRunning={isRunning}
+                onSend={handleStart}
+                onStop={handleStop}
+                initialPrompt={pendingPrompt}
+                initialPhases={pendingPhases}
+              />
+            </div>
 
-      {/* Drawers */}
+            <RightRail
+              activeTab={activeRailTab}
+              onTabChange={setActiveRailTab}
+              mobileOpen={showMobileRail}
+              onCloseMobile={() => setShowMobileRail(false)}
+              searchValue={historyQuery}
+              onSearchChange={setHistoryQuery}
+              conversations={filteredConversations}
+              activeId={sessionId}
+              onSelectConversation={handleSelectConversation}
+              onDeleteConversation={handleDeleteConversation}
+              agentStatuses={agentStatuses}
+              phases={phases}
+              files={files}
+              isRunning={isRunning}
+              startedAt={startedAt}
+            />
+          </div>
+        </main>
+      </div>
+
       <SettingsDrawer open={showSettings} onClose={() => setShowSettings(false)} />
-      <ConversationHistory
-        open={showHistory}
-        onClose={() => setShowHistory(false)}
-        conversations={conversations}
-        activeId={sessionId}
-        onSelect={handleSelectConversation}
-        onDelete={handleDeleteConversation}
-      />
     </div>
   );
 }

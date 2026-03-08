@@ -115,7 +115,7 @@ export function ChatInput({
       <div className="flex-shrink-0 border-t border-clai-border bg-clai-surface/80 backdrop-blur-sm px-4 pb-4 pt-3">
         <div className="max-w-3xl mx-auto">
           {/* Main input row */}
-          <div className="relative rounded-xl border border-clai-border bg-clai-card focus-within:border-clai-accent/40 transition-colors">
+          <div className="relative rounded-xl border border-clai-border bg-clai-card focus-within:border-white/15 transition-colors">
             <textarea
               ref={textareaRef}
               value={value}
@@ -145,9 +145,9 @@ export function ChatInput({
                   disabled={isRunning}
                   title="Project settings"
                   className={cn(
-                    "p-1.5 rounded-lg transition-colors disabled:opacity-40 flex items-center gap-1",
+                    "flex items-center gap-1 rounded-lg p-1.5 transition-colors disabled:opacity-40",
                     showConfig
-                      ? "text-clai-accent bg-clai-accent/10"
+                      ? "bg-white/[0.08] text-white"
                       : "text-clai-muted hover:text-clai-text hover:bg-clai-surface",
                   )}
                 >
@@ -178,7 +178,7 @@ export function ChatInput({
                   <button
                     onClick={handleSend}
                     disabled={!value.trim() || selectedPhases.length === 0}
-                    className="flex items-center gap-1.5 rounded-lg bg-clai-accent px-3 py-1.5 text-xs font-medium text-clai-bg hover:bg-cyan-400 disabled:opacity-30 disabled:hover:bg-clai-accent transition-colors"
+                    className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-clai-bg hover:bg-[#e8e8ea] disabled:opacity-30 disabled:hover:bg-white transition-colors"
                   >
                     <Send className="w-3 h-3" />
                     Send
@@ -198,12 +198,12 @@ export function ChatInput({
                   onClick={() => togglePhase(phase.id)}
                   disabled={isRunning}
                   title={phase.description}
-                  className={cn(
-                    "rounded-full px-3 py-1 text-[11px] font-medium border transition-colors disabled:opacity-50",
+                    className={cn(
+                      "rounded-full px-3 py-1 text-[11px] font-medium border transition-colors disabled:opacity-50",
                     active
-                      ? "border-clai-accent/40 bg-clai-accent/10 text-clai-accent"
+                      ? "border-white/14 bg-white/[0.08] text-white"
                       : "border-clai-border bg-transparent text-clai-muted hover:border-clai-muted/40",
-                  )}
+                    )}
                 >
                   {phase.label}
                 </button>
@@ -230,7 +230,7 @@ export function ChatInput({
                       Project Name
                     </label>
                     <input
-                      className="w-full rounded-lg border border-clai-border bg-clai-card px-3 py-1.5 text-xs text-clai-text placeholder:text-clai-muted/60 focus:outline-none focus:border-clai-accent/40"
+                      className="w-full rounded-lg border border-clai-border bg-clai-card px-3 py-1.5 text-xs text-clai-text placeholder:text-clai-muted/60 focus:outline-none focus:border-white/15"
                       value={projectName}
                       onChange={(e) => setProjectName(e.target.value)}
                       placeholder="my-project"
@@ -241,7 +241,7 @@ export function ChatInput({
                       Workspace
                     </label>
                     <input
-                      className="w-full rounded-lg border border-clai-border bg-clai-card px-3 py-1.5 text-xs text-clai-text placeholder:text-clai-muted/60 focus:outline-none focus:border-clai-accent/40"
+                      className="w-full rounded-lg border border-clai-border bg-clai-card px-3 py-1.5 text-xs text-clai-text placeholder:text-clai-muted/60 focus:outline-none focus:border-white/15"
                       value={workspaceDir}
                       onChange={(e) => setWorkspaceDir(e.target.value)}
                       placeholder="C:\path\to\workspace"
@@ -253,7 +253,7 @@ export function ChatInput({
                         type="checkbox"
                         checked={useGithub}
                         onChange={(e) => setUseGithub(e.target.checked)}
-                        className="accent-clai-accent"
+                        className="accent-white"
                       />
                       GitHub sync
                     </label>

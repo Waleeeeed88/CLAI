@@ -12,10 +12,10 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
-      className="py-4 border-b border-clai-border/30 last:border-0"
+      className="mb-3 rounded-[24px] border border-white/6 bg-white/[0.025] px-4 py-4 last:mb-0"
     >
       {/* Header */}
-      <div className="flex items-center gap-2 mb-2">
+      <div className="mb-3 flex items-center gap-2">
         <AgentBadge agent={message.agent} />
         {message.model && (
           <span className="text-[10px] text-clai-muted font-mono">
@@ -40,7 +40,7 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
 
       {/* Content */}
       {message.content && (
-        <div className="ml-0">
+        <div>
           <MarkdownRenderer content={message.content} />
         </div>
       )}

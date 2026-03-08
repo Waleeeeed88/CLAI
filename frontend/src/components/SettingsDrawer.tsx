@@ -46,7 +46,6 @@ export function SettingsDrawer({ open, onClose }: Props) {
       [role]: {
         ...prev[role],
         provider,
-        // Auto-fill first default model for the new provider
         model: DEFAULT_MODELS[provider]?.[0] ?? prev[role]?.model ?? "",
       },
     }));
@@ -87,146 +86,169 @@ export function SettingsDrawer({ open, onClose }: Props) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 z-40 bg-black/30"
+            className="fixed inset-0 z-40 bg-black/72 backdrop-blur-sm"
           />
-          <motion.div
+          <motion.aside
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
-            transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="fixed right-0 top-0 bottom-0 z-50 w-96 border-l border-clai-border bg-clai-bg overflow-y-auto"
+            transition={{ type: "spring", damping: 28, stiffness: 280 }}
+            className="fixed inset-y-0 right-0 z-50 w-full max-w-[430px] overflow-y-auto border-l border-white/8 bg-clai-shell/96 shadow-[-24px_0_70px_rgba(0,0,0,0.45)] backdrop-blur-xl"
           >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-clai-border">
-              <span className="text-xs font-semibold text-clai-text uppercase tracking-widest">
-                Settings
-              </span>
-              <button onClick={onClose} className="p-1 rounded text-clai-muted hover:text-clai-text transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="p-4 space-y-6">
-              {/* Model Configuration */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-[10px] uppercase tracking-widest text-clai-muted">
-                    Model Assignments
-                  </h4>
+            <div className="flex min-h-full flex-col">
+              <div className="border-b border-white/6 px-5 py-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-clai-muted">
+                      Settings
+                    </p>
+                    <h2 className="mt-2 text-2xl font-semibold tracking-tight text-clai-text">
+                      Model Routing
+                    </h2>
+                    <p className="mt-1 text-sm text-clai-muted">
+                      Adjust provider and model assignments for each CLAI role.
+                    </p>
+                  </div>
                   <button
-                    onClick={handleSave}
-                    disabled={saving || loading}
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-medium transition-colors",
-                      saved
-                        ? "bg-clai-success/10 text-clai-success border border-clai-success/20"
-                        : "bg-clai-accent/10 text-clai-accent border border-clai-accent/20 hover:bg-clai-accent/20",
-                      (saving || loading) && "opacity-50 cursor-not-allowed",
-                    )}
+                    onClick={onClose}
+                    className="rounded-2xl border border-white/10 bg-white/[0.04] p-2 text-clai-muted transition-colors hover:border-white/15 hover:text-clai-text"
                   >
-                    {saving ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : saved ? (
-                      <Check className="w-3 h-3" />
-                    ) : (
-                      <Save className="w-3 h-3" />
-                    )}
-                    {saved ? "Saved" : "Save"}
+                    <X className="h-4 w-4" />
                   </button>
                 </div>
-
-                {error && (
-                  <p className="text-[11px] text-clai-error mb-3">{error}</p>
-                )}
-
-                {loading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-5 h-5 animate-spin text-clai-muted" />
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {roles.map((role) => {
-                      const agent = AGENTS[role];
-                      const roleConfig = config[role];
-                      if (!roleConfig) return null;
-
-                      const modelSuggestions =
-                        DEFAULT_MODELS[roleConfig.provider] ?? [];
-
-                      return (
-                        <div
-                          key={role}
-                          className="rounded-xl border border-clai-border bg-clai-surface/40 p-3"
-                        >
-                          {/* Role header */}
-                          <div className="flex items-center gap-2 mb-2.5">
-                            <span
-                              className="w-2 h-2 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: agent.color }}
-                            />
-                            <span className="text-xs font-medium text-clai-text">
-                              {agent.label}
-                            </span>
-                          </div>
-
-                          {/* Provider dropdown */}
-                          <label className="block text-[10px] uppercase tracking-widest text-clai-muted mb-1">
-                            Provider
-                          </label>
-                          <select
-                            value={roleConfig.provider}
-                            onChange={(e) =>
-                              handleProviderChange(role, e.target.value)
-                            }
-                            className="w-full rounded-lg border border-clai-border bg-clai-card px-3 py-1.5 text-xs text-clai-text focus:outline-none focus:border-clai-accent/40 mb-2"
-                          >
-                            {providers.map((p) => {
-                              const meta = PROVIDERS.find((pr) => pr.id === p);
-                              return (
-                                <option key={p} value={p}>
-                                  {meta?.label ?? p}
-                                </option>
-                              );
-                            })}
-                          </select>
-
-                          {/* Model input with datalist suggestions */}
-                          <label className="block text-[10px] uppercase tracking-widest text-clai-muted mb-1">
-                            Model
-                          </label>
-                          <input
-                            type="text"
-                            list={`models-${role}`}
-                            value={roleConfig.model}
-                            onChange={(e) =>
-                              handleModelChange(role, e.target.value)
-                            }
-                            className="w-full rounded-lg border border-clai-border bg-clai-card px-3 py-1.5 text-xs text-clai-text placeholder:text-clai-muted/60 focus:outline-none focus:border-clai-accent/40 font-mono"
-                            placeholder="model name"
-                          />
-                          <datalist id={`models-${role}`}>
-                            {modelSuggestions.map((m) => (
-                              <option key={m} value={m} />
-                            ))}
-                          </datalist>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
 
-              {/* Keyboard Shortcuts */}
-              <div>
-                <h4 className="text-[10px] uppercase tracking-widest text-clai-muted mb-3">
-                  Keyboard Shortcuts
-                </h4>
-                <div className="space-y-1.5 text-xs">
-                  <Shortcut keys="Enter" action="Send message" />
-                  <Shortcut keys="Shift + Enter" action="New line" />
-                </div>
+              <div className="flex-1 space-y-6 px-5 py-5">
+                <section className="rounded-[28px] border border-white/8 bg-white/[0.035] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-clai-muted">
+                        Assignments
+                      </h3>
+                      <p className="mt-2 text-sm text-clai-muted">
+                        Save updates when you finish editing the active role map.
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleSave}
+                      disabled={saving || loading}
+                      className={cn(
+                        "inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-semibold transition-all",
+                        saved
+                          ? "border-white/10 bg-white/[0.08] text-white"
+                          : "border-white/10 bg-white text-clai-bg shadow-[0_12px_28px_rgba(0,0,0,0.28)] hover:bg-[#e8e8ea]",
+                        (saving || loading) && "cursor-not-allowed opacity-60",
+                      )}
+                    >
+                      {saving ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : saved ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <Save className="h-4 w-4" />
+                      )}
+                      {saved ? "Saved" : "Save"}
+                    </button>
+                  </div>
+
+                  {error && (
+                    <div className="mt-4 rounded-2xl border border-clai-error/20 bg-clai-error/10 px-4 py-3 text-sm text-clai-error">
+                      {error}
+                    </div>
+                  )}
+
+                  {loading ? (
+                    <div className="flex items-center justify-center py-16">
+                      <Loader2 className="h-6 w-6 animate-spin text-clai-muted" />
+                    </div>
+                  ) : (
+                    <div className="mt-5 space-y-4">
+                      {roles.map((role) => {
+                        const agent = AGENTS[role];
+                        const roleConfig = config[role];
+                        if (!roleConfig) return null;
+
+                        const modelSuggestions = DEFAULT_MODELS[roleConfig.provider] ?? [];
+
+                        return (
+                          <div
+                            key={role}
+                            className="rounded-[24px] border border-white/8 bg-black/15 p-4"
+                          >
+                            <div className="flex items-center gap-3">
+                              <span
+                                className="h-10 w-10 rounded-2xl border border-white/8"
+                                style={{ backgroundColor: `${agent.color}18` }}
+                              />
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-clai-text">
+                                  {agent.label}
+                                </p>
+                                <p className="text-[11px] uppercase tracking-[0.18em] text-clai-muted">
+                                  {role.replace(/_/g, " ")}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="mt-4 grid gap-3">
+                              <label className="block">
+                                <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.22em] text-clai-muted">
+                                  Provider
+                                </span>
+                                <select
+                                  value={roleConfig.provider}
+                                  onChange={(e) => handleProviderChange(role, e.target.value)}
+                                  className="w-full rounded-2xl border border-white/8 bg-white/[0.04] px-4 py-3 text-sm text-clai-text focus:border-white/15 focus:outline-none"
+                                >
+                                  {providers.map((provider) => {
+                                    const meta = PROVIDERS.find((entry) => entry.id === provider);
+                                    return (
+                                      <option key={provider} value={provider}>
+                                        {meta?.label ?? provider}
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+                              </label>
+
+                              <label className="block">
+                                <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.22em] text-clai-muted">
+                                  Model
+                                </span>
+                                <input
+                                  type="text"
+                                  list={`models-${role}`}
+                                  value={roleConfig.model}
+                                  onChange={(e) => handleModelChange(role, e.target.value)}
+                                  className="w-full rounded-2xl border border-white/8 bg-white/[0.04] px-4 py-3 font-mono text-sm text-clai-text placeholder:text-clai-muted/65 focus:border-white/15 focus:outline-none"
+                                  placeholder="model name"
+                                />
+                                <datalist id={`models-${role}`}>
+                                  {modelSuggestions.map((model) => (
+                                    <option key={model} value={model} />
+                                  ))}
+                                </datalist>
+                              </label>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+
+                <section className="rounded-[28px] border border-white/8 bg-white/[0.035] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+                  <h3 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-clai-muted">
+                    Keyboard Shortcuts
+                  </h3>
+                  <div className="mt-4 space-y-2">
+                    <Shortcut keys="Enter" action="Send message" />
+                    <Shortcut keys="Shift + Enter" action="New line" />
+                  </div>
+                </section>
               </div>
             </div>
-          </motion.div>
+          </motion.aside>
         </>
       )}
     </AnimatePresence>
@@ -235,9 +257,9 @@ export function SettingsDrawer({ open, onClose }: Props) {
 
 function Shortcut({ keys, action }: { keys: string; action: string }) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-clai-muted">{action}</span>
-      <kbd className="rounded border border-clai-border bg-clai-surface px-1.5 py-0.5 text-[10px] font-mono text-clai-text">
+    <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-black/15 px-4 py-3">
+      <span className="text-sm text-clai-muted">{action}</span>
+      <kbd className="rounded-xl border border-white/10 bg-white/[0.06] px-2.5 py-1 font-mono text-[11px] text-clai-text">
         {keys}
       </kbd>
     </div>

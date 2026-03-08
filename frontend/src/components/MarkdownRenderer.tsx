@@ -24,7 +24,7 @@ export function MarkdownRenderer({ content }: Props) {
           // Inline code
           return (
             <code
-              className="bg-clai-card text-clai-accent px-1.5 py-0.5 rounded text-[0.85em] font-mono"
+              className="rounded bg-clai-card px-1.5 py-0.5 text-[0.85em] font-mono text-clai-text"
               {...props}
             >
               {children}
@@ -41,7 +41,7 @@ export function MarkdownRenderer({ content }: Props) {
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-clai-accent hover:underline"
+              className="text-clai-text underline decoration-white/20 underline-offset-4 hover:decoration-white/60"
             >
               {children}
             </a>

@@ -39,7 +39,7 @@ export function PhaseTimeline({ phases }: Props) {
               <div
                 className={cn(
                   "w-8 sm:w-12 h-px mx-1",
-                  done ? "bg-clai-success" : running ? "bg-clai-accent/40" : "bg-clai-border",
+                  done ? "bg-white/35" : running ? "bg-white/20" : "bg-clai-border",
                 )}
               />
             )}
@@ -47,21 +47,21 @@ export function PhaseTimeline({ phases }: Props) {
               <div
                 className={cn(
                   "w-7 h-7 rounded-full flex items-center justify-center border-2 transition-colors",
-                  done && "border-clai-success bg-clai-success/10",
-                  running && "border-clai-accent bg-clai-accent/10",
+                  done && "border-white/20 bg-white/[0.08]",
+                  running && "border-white/20 bg-white/[0.06]",
                   failed && "border-clai-error bg-clai-error/10",
                   !done && !running && !failed && "border-clai-border bg-clai-surface",
                 )}
               >
-                {done && <Check className="w-3.5 h-3.5 text-clai-success" />}
-                {running && <Loader2 className="w-3.5 h-3.5 text-clai-accent animate-spin" />}
+                {done && <Check className="w-3.5 h-3.5 text-clai-text" />}
+                {running && <Loader2 className="w-3.5 h-3.5 text-clai-text animate-spin" />}
                 {failed && <X className="w-3.5 h-3.5 text-clai-error" />}
               </div>
               <span
                 className={cn(
                   "text-[10px] font-medium capitalize whitespace-nowrap",
-                  done && "text-clai-success",
-                  running && "text-clai-accent",
+                  done && "text-clai-text",
+                  running && "text-clai-text",
                   failed && "text-clai-error",
                   !done && !running && !failed && "text-clai-muted",
                 )}

@@ -34,8 +34,8 @@ export function ToolCallBlock({ toolCall }: { toolCall: ToolCallRecord }) {
           </span>
         )}
         <span className="ml-auto flex-shrink-0">
-          {!isDone && <Loader2 className="w-3 h-3 text-clai-accent animate-spin" />}
-          {isDone && toolCall.success && <Check className="w-3 h-3 text-clai-success" />}
+          {!isDone && <Loader2 className="w-3 h-3 text-clai-text animate-spin" />}
+          {isDone && toolCall.success && <Check className="w-3 h-3 text-clai-text" />}
           {isDone && !toolCall.success && <X className="w-3 h-3 text-clai-error" />}
         </span>
       </button>

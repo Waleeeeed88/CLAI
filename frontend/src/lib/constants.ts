@@ -1,11 +1,11 @@
 export const AGENTS = {
-  senior_dev: { label: "Senior Architect", color: "#f59e0b", icon: "Crown" as const },
-  coder: { label: "Product Engineer", color: "#38bdf8", icon: "Code2" as const },
-  coder_2: { label: "Coder 2", color: "#14b8a6", icon: "Braces" as const },
-  coder_3: { label: "Coder 3", color: "#a16207", icon: "Sparkles" as const },
-  qa: { label: "QA", color: "#22c55e", icon: "TestTube2" as const },
-  ba: { label: "Analyst", color: "#f97316", icon: "FileSearch" as const },
-  reviewer: { label: "Reviewer", color: "#fb7185", icon: "Eye" as const },
+  senior_dev: { label: "Senior Architect", color: "#d7dce5", icon: "Crown" as const },
+  coder: { label: "Coder", color: "#c6cfde", icon: "Code2" as const },
+  coder_2: { label: "Coder 2", color: "#b5c0d1", icon: "Braces" as const },
+  coder_3: { label: "Coder 3", color: "#a7b1c1", icon: "Sparkles" as const },
+  qa: { label: "QA", color: "#d0d6df", icon: "TestTube2" as const },
+  ba: { label: "Analyst", color: "#bfc4cd", icon: "FileSearch" as const },
+  reviewer: { label: "Reviewer", color: "#e1e4ea", icon: "Eye" as const },
 } as const;
 
 export type AgentRole = keyof typeof AGENTS;

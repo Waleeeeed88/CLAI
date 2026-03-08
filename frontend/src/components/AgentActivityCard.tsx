@@ -33,9 +33,9 @@ export function AgentActivityCard({ agent, toolCalls }: Props) {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
-      className="py-3 border-b border-clai-border/50 last:border-0"
+      className="mb-3 rounded-[24px] border border-white/6 bg-white/[0.025] px-4 py-4 last:mb-0"
     >
-      <div className="flex items-center gap-3 mb-2">
+      <div className="mb-3 flex items-center gap-3">
         <div
           className="w-8 h-8 rounded-lg flex items-center justify-center agent-pulse"
           style={{
@@ -48,7 +48,7 @@ export function AgentActivityCard({ agent, toolCalls }: Props) {
           <Icon className="w-4 h-4" style={{ color }} />
         </div>
         <div>
-          <span className="text-sm font-medium" style={{ color }}>
+          <span className="text-sm font-medium text-clai-text">
             {label}
           </span>
           <div className="flex items-center gap-1.5 mt-0.5">
@@ -76,10 +76,10 @@ export function AgentActivityCard({ agent, toolCalls }: Props) {
                 className={cn(
                   "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-mono border",
                   isDone && tc.success
-                    ? "border-clai-success/30 bg-clai-success/5 text-clai-success"
+                    ? "border-white/10 bg-white/[0.05] text-clai-text"
                     : isDone && !tc.success
                     ? "border-clai-error/30 bg-clai-error/5 text-clai-error"
-                    : "border-clai-accent/30 bg-clai-accent/5 text-clai-accent",
+                    : "border-white/10 bg-white/[0.05] text-clai-text",
                 )}
               >
                 {!isDone && (

@@ -27,17 +27,18 @@ export function AgentBadge({ agent, showLabel = true }: Props) {
   const Icon = meta ? ICON_MAP[meta.icon] ?? Code2 : Code2;
 
   return (
-    <span
-      className="inline-flex items-center gap-1.5 text-[11px] font-semibold"
-      style={{ color }}
-    >
+    <span className="inline-flex items-center gap-2 text-[11px] font-semibold">
       <span
-        className="w-5 h-5 rounded-md flex items-center justify-center"
-        style={{ backgroundColor: color + "18" }}
+        className="flex h-8 w-8 items-center justify-center rounded-2xl border border-white/6"
+        style={{ backgroundColor: `${color}14`, color }}
       >
-        <Icon className="w-3 h-3" />
+        <Icon className="h-4 w-4" />
       </span>
-      {showLabel && <span className="uppercase tracking-wider text-[10px]">{label}</span>}
+      {showLabel && (
+        <span className="rounded-full border border-white/6 bg-white/[0.04] px-2.5 py-1 uppercase tracking-[0.18em] text-clai-text">
+          {label}
+        </span>
+      )}
     </span>
   );
 }
