@@ -48,7 +48,7 @@ class CLAIShell:
     
     def print_help(self):
         console.print("\n[bold cyan]@Mentions[/bold cyan]")
-        console.print("  @senior, @dev, @qa, @ba, @reviewer, @team")
+        console.print("  @senior, @dev, @dev2, @dev3, @qa, @ba, @reviewer, @team")
         console.print("  @team runs BA-first roundtable discussion")
         console.print("\n[bold cyan]Commands[/bold cyan]")
         console.print("  team, workflows, workflow <name>, stages, stage <name>, config, clear, exit")
@@ -75,6 +75,7 @@ class CLAIShell:
             ("Senior Dev", Role.SENIOR_DEV),
             ("Coder", Role.CODER),
             ("Coder 2", Role.CODER_2),
+            ("Coder 3", Role.CODER_3),
             ("Reviewer", Role.REVIEWER),
         ]
         for role_name, role in team:
@@ -90,13 +91,13 @@ class CLAIShell:
         table.add_column("Pipeline", style="green")
         
         workflows = [
-            ("feature", "BA → QA → Senior → Coder → Coder2"),
+            ("feature", "BA → QA → Senior → Coder → Coder2 → Coder3"),
             ("review", "Reviewer → Senior"),
             ("bugfix", "QA → Senior → Coder"),
             ("architecture", "BA → Senior → QA"),
             ("project_setup", "BA (creates issues) → Senior (architecture)"),
             ("pr_review", "Reviewer (reviews PR) → QA (test plan)"),
-            ("full_feature", "BA → Senior → Coder → Coder2 → QA → Reviewer"),
+            ("full_feature", "BA → Senior → Coder → Coder2 → Coder3 → QA → Reviewer"),
             ("test_and_verify", "QA (test plan) → Coder (write tests) → QA (run tests)"),
         ]
         for name, pipeline in workflows:
@@ -371,6 +372,7 @@ class CLAIShell:
                 ("Senior Dev", Role.SENIOR_DEV),
                 ("Coder", Role.CODER),
                 ("Coder 2", Role.CODER_2),
+                ("Coder 3", Role.CODER_3),
                 ("Reviewer", Role.REVIEWER),
             ]:
                 provider, model = AgentFactory.get_role_runtime_config(role)
@@ -518,6 +520,7 @@ class CLAIShell:
             ("Senior Dev", Role.SENIOR_DEV),
             ("Coder", Role.CODER),
             ("Coder 2", Role.CODER_2),
+            ("Coder 3", Role.CODER_3),
             ("Reviewer", Role.REVIEWER),
         ]
 

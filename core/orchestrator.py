@@ -10,11 +10,21 @@ from .workflows import WorkflowStatus, WorkflowStep, WorkflowResult
 from .filesystem import FileSystemTools, get_filesystem
 from .tool_registry import ToolRegistry
 from .filesystem_tools import build_filesystem_registry
+from .scratchpad import Scratchpad, build_scratchpad_registry
+from .routing import DEFAULT_FALLBACKS, _is_retriable_error, FallbackEvent
 
 logger = logging.getLogger(__name__)
 
 # Roles that receive filesystem tools
-_FS_TOOL_ROLES = {Role.SENIOR_DEV, Role.CODER, Role.CODER_2, Role.QA, Role.BA, Role.REVIEWER}
+_FS_TOOL_ROLES = {
+    Role.SENIOR_DEV,
+    Role.CODER,
+    Role.CODER_2,
+    Role.CODER_3,
+    Role.QA,
+    Role.BA,
+    Role.REVIEWER,
+}
 
 
 class Orchestrator:
@@ -24,6 +34,8 @@ class Orchestrator:
         self._workflows: Dict[str, List[WorkflowStep]] = {}
         self._stages: Dict[str, Dict[str, str]] = {}
         self._extra_registries: Dict[Role, ToolRegistry] = {}
+        self._scratchpad = Scratchpad()
+        self._on_fallback: Optional[Any] = None  # callback for fallback events
 
         settings = get_settings()
         self._mcp_enabled = settings.mcp_enabled
@@ -114,7 +126,7 @@ class Orchestrator:
         self._github_client.connect_sync()
 
         # Build scoped registries for each role
-        for role_name in ("ba", "reviewer", "coder", "coder_2", "senior_dev", "qa"):
+        for role_name in ("ba", "reviewer", "coder", "coder_2", "coder_3", "senior_dev", "qa"):
             self._github_registries[role_name] = build_github_registry_for_role(
                 self._github_client, role_name
             )
@@ -129,6 +141,10 @@ class Orchestrator:
     def github_configured(self) -> bool:
         """Check if GitHub MCP is configured (without connecting)."""
         return self._github_settings is not None
+
+    @property
+    def scratchpad(self) -> Scratchpad:
+        return self._scratchpad
 
     @property
     def filesystem(self) -> Optional[FileSystemTools]:
@@ -178,8 +194,12 @@ class Orchestrator:
             registry.merge(self._excel_registry)
 
         # Test runner for QA and coders
-        if self._test_runner_registry and role in (Role.QA, Role.CODER, Role.CODER_2):
+        if self._test_runner_registry and role in (Role.QA, Role.CODER, Role.CODER_2, Role.CODER_3):
             registry.merge(self._test_runner_registry)
+
+        # Scratchpad tools for all roles
+        scratchpad_reg = build_scratchpad_registry(self._scratchpad, role.value)
+        registry.merge(scratchpad_reg)
 
         # Extra tools registered externally
         extra = self._extra_registries.get(role)
@@ -217,14 +237,75 @@ class Orchestrator:
         agent = self._get_agent(role)
         if self.verbose:
             print(f"[{role.value}] Processing...")
-        response = agent.chat(prompt, include_history=include_history)
+
+        try:
+            response = agent.chat(prompt, include_history=include_history)
+        except Exception as exc:
+            if not _is_retriable_error(exc):
+                raise
+
+            # Try fallback providers
+            fallbacks = DEFAULT_FALLBACKS.get(role, [])
+            if not fallbacks:
+                raise
+
+            from agents.factory import Provider
+            primary_provider, primary_model = AgentFactory.get_role_runtime_config(role)
+            logger.warning(
+                "[%s] Primary provider %s failed (%s), trying fallbacks...",
+                role.value, primary_provider.value, exc,
+            )
+
+            for fb_provider, fb_model in fallbacks:
+                try:
+                    if self.verbose:
+                        print(f"[{role.value}] Falling back to {fb_provider.value}/{fb_model}...")
+
+                    if self._on_fallback:
+                        self._on_fallback(FallbackEvent(
+                            role=role.value,
+                            from_provider=primary_provider.value,
+                            from_model=primary_model,
+                            to_provider=fb_provider.value,
+                            to_model=fb_model,
+                            reason=str(exc)[:200],
+                            attempt=1,
+                        ))
+
+                    tool_registry = self._build_tool_registry(role)
+                    fb_agent = AgentFactory.create_by_provider(
+                        provider=fb_provider,
+                        model=fb_model,
+                        system_prompt=agent.system_prompt,
+                        max_tokens=agent.max_tokens,
+                        temperature=agent.temperature,
+                        tool_registry=tool_registry,
+                    )
+                    response = fb_agent.chat(prompt, include_history=False)
+                    logger.info(
+                        "[%s] Fallback to %s/%s succeeded",
+                        role.value, fb_provider.value, fb_model,
+                    )
+                    break
+                except Exception as fb_exc:
+                    if not _is_retriable_error(fb_exc):
+                        raise
+                    logger.warning(
+                        "[%s] Fallback %s/%s also failed: %s",
+                        role.value, fb_provider.value, fb_model, fb_exc,
+                    )
+                    continue
+            else:
+                # All fallbacks exhausted
+                raise
+
         if self.verbose:
             print(f"[{role.value}] Done ({response.total_tokens} tokens)")
         return response
     
     def consult_team(self, prompt: str, roles: Optional[List[Role]] = None) -> Dict[Role, AgentResponse]:
         if roles is None:
-            roles = [Role.BA, Role.QA, Role.SENIOR_DEV, Role.CODER, Role.CODER_2, Role.REVIEWER]
+            roles = [Role.BA, Role.QA, Role.SENIOR_DEV, Role.CODER, Role.CODER_2, Role.CODER_3, Role.REVIEWER]
         results = {}
         for role in roles:
             if self.verbose:
@@ -241,7 +322,7 @@ class Orchestrator:
     ) -> Dict[Role, AgentResponse]:
         """Run a BA-first roundtable where each role can react to previous roles."""
         if roles is None:
-            roles = [Role.BA, Role.QA, Role.SENIOR_DEV, Role.CODER, Role.CODER_2]
+            roles = [Role.BA, Role.QA, Role.SENIOR_DEV, Role.CODER, Role.CODER_2, Role.CODER_3]
 
         results: Dict[Role, AgentResponse] = {}
         turns: List[Tuple[Role, AgentResponse]] = []
@@ -1057,6 +1138,7 @@ Rules:
             WorkflowStep(Role.SENIOR_DEV, "Design architecture and delivery approach.", depends_on=["step_0_ba", "step_1_qa"]),
             WorkflowStep(Role.CODER, "Implement the feature according to plan. Use write_file to create actual source files in the workspace.", depends_on=["step_0_ba", "step_1_qa", "step_2_senior_dev"]),
             WorkflowStep(Role.CODER_2, "Propose alternative implementation/refinement and integration checks. Use write_file if making changes.", depends_on=["step_3_coder"]),
+            WorkflowStep(Role.CODER_3, "Polish integration seams, UX details, and final implementation rough edges. Use write_file if making changes.", depends_on=["step_3_coder", "step_4_coder_2"]),
         ])
 
         self.register_workflow("review", [
@@ -1122,14 +1204,24 @@ Rules:
                 depends_on=["step_0_ba", "step_1_senior_dev"],
             ),
             WorkflowStep(
+                Role.CODER_2,
+                "Add complementary implementation, integration work, and cross-file refinement.",
+                depends_on=["step_2_coder"],
+            ),
+            WorkflowStep(
+                Role.CODER_3,
+                "Polish UX, integration seams, and final hardening after the main coding pass.",
+                depends_on=["step_2_coder", "step_3_coder_2"],
+            ),
+            WorkflowStep(
                 Role.QA,
                 "Write test files and create an Excel test plan. Run tests if run_tests is available.",
-                depends_on=["step_2_coder"],
+                depends_on=["step_2_coder", "step_3_coder_2", "step_4_coder_3"],
             ),
             WorkflowStep(
                 Role.REVIEWER,
                 "Review the implementation for quality, correctness, and best practices.",
-                depends_on=["step_2_coder", "step_3_qa"],
+                depends_on=["step_2_coder", "step_3_coder_2", "step_4_coder_3", "step_5_qa"],
             ),
         ])
 

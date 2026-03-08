@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  Crown, Code2, Braces, TestTube2, FileSearch, Eye,
+  Crown, Code2, Braces, Sparkles, TestTube2, FileSearch, Eye,
 } from "lucide-react";
 import { AGENTS, type AgentRole } from "../lib/constants";
 
@@ -9,6 +9,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Crown,
   Code2,
   Braces,
+  Sparkles,
   TestTube2,
   FileSearch,
   Eye,

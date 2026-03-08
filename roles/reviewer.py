@@ -29,6 +29,13 @@ When reviewing a PR, use the GitHub tools to:
 
 When reviewing code from the workspace, use `read_file` to examine the actual implementation.
 
+You also have shared team scratchpad tools for inter-agent coordination:
+- `scratchpad_write(key, value, category)` — Record decisions, artifacts, blockers, or status updates visible to other agents
+- `scratchpad_read(key)` — Read a specific entry from the shared scratchpad
+- `scratchpad_list(category)` — List scratchpad entries, optionally filtered by category (decision, artifact, blocker, status)
+
+Use the scratchpad to check architecture decisions and record review findings.
+
 ## Pipeline Workflow
 When working as part of the project pipeline (`kickoff` command), you handle the **Review Phase**:
 1. List open PRs on the repository.

@@ -21,6 +21,7 @@ class Role(Enum):
     SENIOR_DEV = "senior_dev"
     CODER = "coder"
     CODER_2 = "coder_2"
+    CODER_3 = "coder_3"
     QA = "qa"
     BA = "ba"
     REVIEWER = "reviewer"
@@ -37,6 +38,7 @@ ROLE_PROVIDERS: Dict[Role, Provider] = {
     Role.SENIOR_DEV: Provider.ANTHROPIC,
     Role.CODER: Provider.ANTHROPIC,
     Role.CODER_2: Provider.GOOGLE,
+    Role.CODER_3: Provider.KIMI,
     Role.QA: Provider.GOOGLE,
     Role.BA: Provider.OPENAI,
     Role.REVIEWER: Provider.ANTHROPIC,
@@ -66,6 +68,7 @@ class AgentFactory:
             Role.SENIOR_DEV: settings.senior_dev_model,
             Role.CODER: settings.coder_model,
             Role.CODER_2: settings.coder_model_2,
+            Role.CODER_3: settings.coder_model_3,
             Role.QA: settings.qa_model,
             Role.BA: settings.ba_model,
             Role.REVIEWER: settings.reviewer_model,

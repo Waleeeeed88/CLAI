@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     senior_dev_model: str = "claude-opus-4-5-20251101"
     coder_model: str = "claude-sonnet-4-5-20250929"
     coder_model_2: str = "gemini-3.1-pro-preview"
+    coder_model_3: str = "kimi-k2-thinking"
     qa_model: str = "gemini-3-flash-preview"
     ba_model: str = "gpt-5.2-2025-12-11"
     reviewer_model: str = "claude-sonnet-4-5-20250929"

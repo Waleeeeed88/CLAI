@@ -2,6 +2,7 @@ export const AGENTS = {
   senior_dev: { label: "Senior Architect", color: "#f59e0b", icon: "Crown" as const },
   coder: { label: "Product Engineer", color: "#38bdf8", icon: "Code2" as const },
   coder_2: { label: "Coder 2", color: "#14b8a6", icon: "Braces" as const },
+  coder_3: { label: "Coder 3", color: "#a16207", icon: "Sparkles" as const },
   qa: { label: "QA", color: "#22c55e", icon: "TestTube2" as const },
   ba: { label: "Analyst", color: "#f97316", icon: "FileSearch" as const },
   reviewer: { label: "Reviewer", color: "#fb7185", icon: "Eye" as const },
@@ -28,7 +29,7 @@ export const DEFAULT_MODELS: Record<string, string[]> = {
   anthropic: ['claude-opus-4-5-20251101', 'claude-sonnet-4-5-20250929'],
   openai:    ['gpt-5.2-2025-12-11', 'gpt-4.1-2025-04-14', 'o3-mini'],
   google:    ['gemini-3.1-pro-preview', 'gemini-3-flash-preview', 'gemini-2.5-pro-preview-05-06'],
-  kimi:      ['kimi-k2-0520', 'moonshot-v1-128k', 'moonshot-v1-32k'],
+  kimi:      ['kimi-k2-thinking', 'kimi-k2-thinking-turbo', 'kimi-k2-0520'],
 };
 
 export const SUGGESTION_CARDS = [

@@ -16,6 +16,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from agents import AgentResponse
 from agents.factory import Role
+from core.parallel import parallel_ask, ParallelTask
 
 logger = logging.getLogger(__name__)
 
@@ -193,6 +194,16 @@ class ProjectPipeline:
         if self._cancel_check and self._cancel_check():
             raise RuntimeError("Pipeline cancelled by user")
 
+    def _scratchpad_context(self) -> str:
+        """Return scratchpad summary if available, empty string otherwise."""
+        scratchpad = getattr(self.orch, "_scratchpad", None)
+        if scratchpad is None:
+            return ""
+        summary = scratchpad.summarize(max_chars=1200)
+        if summary == "(scratchpad is empty)":
+            return ""
+        return f"\n\n{summary}\n"
+
     def _ask(
         self,
         phase_name: str,
@@ -202,6 +213,11 @@ class ProjectPipeline:
     ) -> AgentResponse:
         """Ask one role for one step and emit callback."""
         self._check_cancelled()
+
+        # Inject scratchpad context so agents see shared state
+        pad_ctx = self._scratchpad_context()
+        if pad_ctx:
+            prompt = f"{prompt}\n{pad_ctx}"
 
         logger.info("[%s] %s: asking %s", phase_name, step_name, role.value)
         response = self.orch.ask(role, prompt)
@@ -288,7 +304,7 @@ Break the plan into concrete implementation tasks:
    - Clear acceptance criteria per task
    - Priority ordering (P0 critical, P1 high, P2 normal)
    - Dependencies between tasks
-   - Suggested owner role (coder, coder_2, qa)
+   - Suggested owner role (coder, coder_2, coder_3, qa)
 2. Use write_file to create implementation/acceptance_criteria.markdown with:
    - Definition of done per task
    - Business validation rules
@@ -365,7 +381,11 @@ Rules:
 
         qa_summary = self._clip(qa_strategy_resp.content, MAX_IMPL_SUMMARY_CHARS)
 
-        # ── Step 4: Coder — Primary implementation ──────────────────────
+        # ── Steps 4-5: Parallel Coder + Coder 2 implementation ─────────
+        # Both coders run simultaneously with the same architecture/QA context.
+        # They use the shared scratchpad to coordinate and avoid duplication.
+        pad_ctx = self._scratchpad_context()
+
         coder_prompt = f"""You are the primary developer for project "{project}".
 
 Requirement:
@@ -376,54 +396,122 @@ Architecture design:
 
 QA test strategy (your code must satisfy these quality gates):
 {qa_summary}
-
+{pad_ctx}
 Do all of the following:
-1. Use get_tree and read_file to inspect any existing files.
-2. Implement the primary source files with write_file — follow the architecture design.
-3. Write unit tests alongside your code.
-4. Create or update README/run instructions if needed.
-5. Use write_file to create implementation/coder_summary.markdown listing what you built.
-{"6. If GitHub MCP tools are available, prepare branch and PR notes in implementation/github_notes.markdown." if has_github else ""}
+1. Use scratchpad_write to record which modules/files you are implementing (key: "coder_modules", category: "status").
+2. Use get_tree and read_file to inspect any existing files.
+3. Implement the primary source files with write_file — follow the architecture design.
+4. Write unit tests alongside your code.
+5. Create or update README/run instructions if needed.
+6. Use write_file to create implementation/coder_summary.markdown listing what you built.
+{"7. If GitHub MCP tools are available, prepare branch and PR notes in implementation/github_notes.markdown." if has_github else ""}
 
 Rules:
 - Write real, complete, working code — not stubs or pseudocode.
 - Follow the coding guidelines from the senior dev.
 - Ensure your code is testable per the QA strategy.
 - Address the BA's acceptance criteria for each task you implement.
+- Use scratchpad_write to record key decisions and artifacts as you work.
 """
-        coder_resp = self._ask("implementation", "coder_implementation", Role.CODER, coder_prompt)
-        outputs["coder_implementation"] = coder_resp
 
-        coder_summary = self._clip(coder_resp.content, MAX_IMPL_SUMMARY_CHARS)
-
-        # ── Step 5: Coder 2 — Secondary/parallel implementation ────────
         coder2_prompt = f"""You are the secondary developer for project "{project}".
+
+Requirement:
+{requirement}
 
 Architecture design:
 {arch_summary}
 
-Primary coder's work:
-{coder_summary}
+QA test strategy:
+{qa_summary}
+{pad_ctx}
+You are running IN PARALLEL with the primary coder. To avoid duplication:
+1. Use scratchpad_list to check what the primary coder is working on.
+2. Use scratchpad_write to record which modules/files you are implementing (key: "coder2_modules", category: "status").
+3. Focus on complementary modules, supporting code, and integration layers.
+4. Implement your assigned source files with write_file.
+5. Add integration tests or additional unit tests.
+6. Use write_file to create implementation/coder2_summary.markdown with what you built and any concerns.
+
+Rules:
+- Coordinate via scratchpad to avoid duplicating the primary coder's work.
+- Focus on gaps, edge cases, and integration code.
+- Write real code, not descriptions.
+- Use scratchpad_write to record key decisions and artifacts as you work.
+"""
+
+        self._check_cancelled()
+        logger.info("[implementation] Running Coder + Coder 2 in parallel")
+
+        parallel_result = parallel_ask(
+            self.orch,
+            tasks=[
+                ParallelTask(role=Role.CODER, prompt=coder_prompt, label="coder_implementation"),
+                ParallelTask(role=Role.CODER_2, prompt=coder2_prompt, label="coder2_implementation"),
+            ],
+        )
+
+        # Collect results — gracefully handle partial failures
+        coder_resp = parallel_result.responses.get(Role.CODER)
+        coder2_resp = parallel_result.responses.get(Role.CODER_2)
+
+        if coder_resp:
+            outputs["coder_implementation"] = coder_resp
+            if self.on_step_done:
+                self.on_step_done("implementation", "coder_implementation", coder_resp)
+        if coder2_resp:
+            outputs["coder2_implementation"] = coder2_resp
+            if self.on_step_done:
+                self.on_step_done("implementation", "coder2_implementation", coder2_resp)
+
+        # Log errors but don't fail the pipeline if at least one coder succeeded
+        for role, error in parallel_result.errors.items():
+            logger.warning("Parallel coder %s failed: %s", role.value, error)
+
+        if not coder_resp and not coder2_resp:
+            raise RuntimeError(
+                f"Both coders failed: {parallel_result.errors}"
+            )
+
+        coder_content = coder_resp.content if coder_resp else "(coder failed)"
+        coder2_content = coder2_resp.content if coder2_resp else "(coder 2 failed)"
+        combined_code_summary = coder_content + "\n\n" + coder2_content
+
+        coder3_prompt = f"""You are the implementation finisher for project "{project}".
+
+Requirement:
+{requirement}
+
+Architecture design:
+{arch_summary}
 
 QA test strategy:
 {qa_summary}
 
-Do the following:
-1. Review what the primary coder built — identify gaps or remaining tasks.
-2. Implement any remaining source files, alternative modules, or supporting code.
-3. Add integration tests or additional unit tests for areas the primary coder missed.
-4. Use write_file to create implementation/coder2_summary.markdown with what you built and any concerns.
+Implementation summary from the first two coding passes:
+{self._clip(combined_code_summary, MAX_IMPL_SUMMARY_CHARS)}
+{pad_ctx}
+You are working AFTER the primary and secondary coders. Your job is to improve the final result:
+1. Use scratchpad_list to review prior coding ownership and open issues.
+2. Use scratchpad_write to record what you are polishing (key: "coder3_modules", category: "status").
+3. Use get_tree and read_file to inspect what was built.
+4. Improve integration seams, UX details, error states, consistency, and final implementation rough edges with write_file.
+5. Add or tighten tests if your changes need them.
+6. Use write_file to create implementation/coder3_summary.markdown with what you improved and any unresolved risks.
 
 Rules:
-- Don't duplicate what the primary coder already built.
-- Focus on gaps, edge cases, and integration code.
-- Write real code, not descriptions.
+- Do not duplicate the main implementation work.
+- Focus on high-leverage cleanup, polish, integration hardening, and UX improvements.
+- Preserve the existing architecture unless you find a concrete issue.
+- Use scratchpad_write to record key decisions and artifacts as you work.
 """
-        coder2_resp = self._ask("implementation", "coder2_implementation", Role.CODER_2, coder2_prompt)
-        outputs["coder2_implementation"] = coder2_resp
+        coder3_resp = self._ask("implementation", "coder3_polish", Role.CODER_3, coder3_prompt)
+        outputs["coder3_polish"] = coder3_resp
+
+        coder3_content = coder3_resp.content if coder3_resp else "(coder 3 failed)"
 
         all_code_summary = self._clip(
-            coder_resp.content + "\n\n" + coder2_resp.content,
+            combined_code_summary + "\n\n" + coder3_content,
             MAX_IMPL_SUMMARY_CHARS,
         )
 
@@ -436,7 +524,7 @@ Architecture design:
 QA quality gates:
 {qa_summary}
 
-Implementation summary (both coders):
+Implementation summary (all coding passes):
 {all_code_summary}
 
 Review the implementation:

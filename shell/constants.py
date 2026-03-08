@@ -11,7 +11,7 @@ COMMANDS = [
     "github", "tools", "kickoff",
 ]
 
-ROLES = ["senior_dev", "coder", "coder_2", "qa", "ba", "reviewer"]
+ROLES = ["senior_dev", "coder", "coder_2", "coder_3", "qa", "ba", "reviewer"]
 
 WORKFLOWS = ["feature", "review", "bugfix", "architecture", "project_setup", "pr_review", "full_feature", "test_and_verify"]
 
@@ -39,6 +39,10 @@ MENTION_ALIASES: Dict[str, Role] = {
     "@dev2": Role.CODER_2,
     "@coder2": Role.CODER_2,
     "@gemini": Role.CODER_2,
+
+    "@dev3": Role.CODER_3,
+    "@coder3": Role.CODER_3,
+    "@kimi": Role.CODER_3,
     
     "@qa": Role.QA,
     "@test": Role.QA,

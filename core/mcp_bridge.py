@@ -173,13 +173,14 @@ def build_github_registry_for_role(
     Args:
         client: A connected ``MCPClient`` for the GitHub MCP server.
         role_name: One of ``ba``, ``reviewer``, ``coder``, ``coder_2``,
-            ``senior_dev``, ``qa``.
+            ``coder_3``, ``senior_dev``, ``qa``.
     """
     filter_map = {
         "ba": GITHUB_BA_TOOLS,
         "reviewer": GITHUB_REVIEWER_TOOLS,
         "coder": GITHUB_CODER_TOOLS,
         "coder_2": GITHUB_CODER_TOOLS,
+        "coder_3": GITHUB_CODER_TOOLS,
         "senior_dev": GITHUB_SENIOR_TOOLS,
         "qa": GITHUB_QA_TOOLS,
     }

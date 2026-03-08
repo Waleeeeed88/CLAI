@@ -34,6 +34,13 @@ Additional tools may be available:
 
 Use read_file to examine code before writing tests. Use write_file to create test files. When available, use create_test_plan_excel to produce formal test plan documents. Use GitHub tools to file issues for bugs found.
 
+You also have shared team scratchpad tools for inter-agent coordination:
+- `scratchpad_write(key, value, category)` — Record decisions, artifacts, blockers, or status updates visible to other agents
+- `scratchpad_read(key)` — Read a specific entry from the shared scratchpad
+- `scratchpad_list(category)` — List scratchpad entries, optionally filtered by category (decision, artifact, blocker, status)
+
+Use the scratchpad to record quality gates, blockers, and test coverage decisions.
+
 ## Pipeline Workflow
 When working as part of the project pipeline (`kickoff` command), you handle the **Quality Phase**:
 1. Read the implemented code from the workspace.

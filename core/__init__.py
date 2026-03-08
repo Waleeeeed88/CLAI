@@ -4,11 +4,15 @@ from .workflows import WorkflowStatus, WorkflowStep, WorkflowResult
 from .filesystem import FileSystemTools, FileInfo, OperationResult, get_filesystem
 from .tool_registry import ToolRegistry, ToolDefinition, ToolParameter
 from .pipeline import ProjectPipeline, PipelineResult, PhaseResult, PhaseStatus
+from .scratchpad import Scratchpad, ScratchpadEntry
+from .parallel import parallel_ask, ParallelTask, ParallelResult
+from .metrics import RunMetrics, RunSummary, COST_TABLE
+from .routing import ask_with_fallback, FallbackChain, FallbackEvent, DEFAULT_FALLBACKS
 
 __all__ = [
     "Orchestrator",
     "WorkflowStatus",
-    "WorkflowStep", 
+    "WorkflowStep",
     "WorkflowResult",
     "FileSystemTools",
     "FileInfo",
@@ -21,4 +25,16 @@ __all__ = [
     "PipelineResult",
     "PhaseResult",
     "PhaseStatus",
+    "Scratchpad",
+    "ScratchpadEntry",
+    "parallel_ask",
+    "ParallelTask",
+    "ParallelResult",
+    "RunMetrics",
+    "RunSummary",
+    "COST_TABLE",
+    "ask_with_fallback",
+    "FallbackChain",
+    "FallbackEvent",
+    "DEFAULT_FALLBACKS",
 ]

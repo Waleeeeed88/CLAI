@@ -36,6 +36,13 @@ You also have GitHub tools for code delivery:
 
 When implementing code, **always use write_file** to create the actual files locally, then **push_files** to push them to the feature branch on GitHub. Read existing files first to understand the codebase before making changes.
 
+You also have shared team scratchpad tools for inter-agent coordination:
+- `scratchpad_write(key, value, category)` — Record decisions, artifacts, blockers, or status updates visible to other agents
+- `scratchpad_read(key)` — Read a specific entry from the shared scratchpad
+- `scratchpad_list(category)` — List scratchpad entries, optionally filtered by category (decision, artifact, blocker, status)
+
+Use the scratchpad to record which modules you're implementing and flag any blockers or decisions.
+
 ## Pipeline Workflow
 When working as part of the project pipeline (`kickoff` command), you handle the **Build Phase**:
 1. Read the architecture plan and user stories from earlier phases.
