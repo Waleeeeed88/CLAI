@@ -35,11 +35,13 @@ class Orchestrator:
         self._stages: Dict[str, Dict[str, str]] = {}
         self._extra_registries: Dict[Role, ToolRegistry] = {}
         self._scratchpad = Scratchpad()
-        self._enterprise_data_registry: Optional[ToolRegistry] = None
+        self._enterprise_data_foundation: Optional[Any] = None
         self._on_fallback: Optional[Any] = None  # callback for fallback events
 
         settings = get_settings()
         self._mcp_enabled = settings.mcp_enabled
+        self._scratchpad_enabled = settings.scratchpad_enabled
+        self._qa_tools_enabled = settings.qa_tools_enabled
         self._fs: Optional[FileSystemTools] = None
         self._fs_registry: Optional[ToolRegistry] = None
         if self._mcp_enabled:
@@ -82,11 +84,10 @@ class Orchestrator:
         # Enterprise data foundation tools: metadata, retrieval, memory, governance, audit, cost controls.
         if getattr(settings, "enterprise_data_enabled", True):
             try:
-                from .enterprise_data import build_enterprise_data_registry, get_enterprise_data_foundation
-                foundation = get_enterprise_data_foundation(
+                from .enterprise_data import get_enterprise_data_foundation
+                self._enterprise_data_foundation = get_enterprise_data_foundation(
                     settings.workspace_path / settings.enterprise_data_dir
                 )
-                self._enterprise_data_registry = build_enterprise_data_registry(foundation, "system")
             except Exception as e:
                 logger.debug(f"Enterprise data tools not available: {e}")
 
@@ -202,25 +203,22 @@ class Orchestrator:
             registry.merge(github_reg)
 
         # Excel test plan tool for QA
-        if self._excel_registry and role in (Role.QA,):
+        if self._qa_tools_enabled and self._excel_registry and role in (Role.QA,):
             registry.merge(self._excel_registry)
 
         # Test runner for QA and coders
-        if self._test_runner_registry and role in (Role.QA, Role.CODER, Role.CODER_2, Role.CODER_3):
+        if self._qa_tools_enabled and self._test_runner_registry and role in (Role.QA, Role.CODER, Role.CODER_2, Role.CODER_3):
             registry.merge(self._test_runner_registry)
 
         # Scratchpad tools for all roles
-        scratchpad_reg = build_scratchpad_registry(self._scratchpad, role.value)
-        registry.merge(scratchpad_reg)
+        if self._scratchpad_enabled:
+            scratchpad_reg = build_scratchpad_registry(self._scratchpad, role.value)
+            registry.merge(scratchpad_reg)
 
         # Enterprise data and cost-control tools for all roles, bound to caller role.
-        if self._enterprise_data_registry:
-            from .enterprise_data import build_enterprise_data_registry, get_enterprise_data_foundation
-            settings = get_settings()
-            foundation = get_enterprise_data_foundation(
-                settings.workspace_path / settings.enterprise_data_dir
-            )
-            registry.merge(build_enterprise_data_registry(foundation, role.value))
+        if self._enterprise_data_foundation:
+            from .enterprise_data import build_enterprise_data_registry
+            registry.merge(build_enterprise_data_registry(self._enterprise_data_foundation, role.value))
 
         # Extra tools registered externally
         extra = self._extra_registries.get(role)

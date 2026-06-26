@@ -32,10 +32,31 @@ class RoleConfig(BaseModel):
     model: str
 
 
+class TeamPreset(BaseModel):
+    id: str
+    label: str
+    description: str
+    roles: Dict[str, RoleConfig]
+
+
+class ToolConfig(BaseModel):
+    filesystem: bool = True
+    scratchpad: bool = True
+    enterprise_data: bool = True
+    qa_tools: bool = True
+    github_mcp: bool = False
+
+
 class ModelConfigResponse(BaseModel):
     roles: Dict[str, RoleConfig]
     providers: List[str]
+    presets: List[TeamPreset] = Field(default_factory=list)
+    active_preset: Optional[str] = None
+    tools: ToolConfig = Field(default_factory=ToolConfig)
+    warnings: List[str] = Field(default_factory=list)
 
 
 class ModelConfigRequest(BaseModel):
-    overrides: Dict[str, RoleConfig]
+    overrides: Dict[str, RoleConfig] = Field(default_factory=dict)
+    team_preset: Optional[str] = None
+    tools: Optional[ToolConfig] = None

@@ -7,6 +7,18 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, SecretStr, field_validator
 
 
+OVERRIDES_META_KEY = "__meta__"
+OVERRIDES_TOOLS_KEY = "__tools__"
+
+
+def _coerce_bool(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return bool(value)
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -19,7 +31,7 @@ class Settings(BaseSettings):
     openai_api_key: Optional[SecretStr] = Field(default=None)
     google_api_key: Optional[SecretStr] = Field(default=None)
 
-    # Kimi (Moonshot AI) — optional, only needed if you route a role to Kimi
+    # Kimi (Moonshot AI) - optional, only needed if you route a role to Kimi.
     kimi_api_key: Optional[SecretStr] = Field(default=None)
 
     # OpenRouter (OpenAI-compatible) - optional, only needed for openrouter routes.
@@ -66,6 +78,8 @@ class Settings(BaseSettings):
     mcp_workspace_root: str = "./workspace"
     enterprise_data_enabled: bool = True
     enterprise_data_dir: str = ".clai_data"
+    scratchpad_enabled: bool = True
+    qa_tools_enabled: bool = True
 
     @field_validator("role_model_overrides", "role_provider_overrides", mode="before")
     @classmethod
@@ -118,7 +132,7 @@ class Settings(BaseSettings):
 OVERRIDES_FILE = Path(__file__).parent / "overrides.json"
 
 
-def _load_overrides() -> Dict[str, Dict[str, str]]:
+def _load_overrides() -> Dict[str, dict]:
     """Load role overrides from the local JSON file (if it exists)."""
     if not OVERRIDES_FILE.exists():
         return {}
@@ -135,6 +149,13 @@ def get_settings() -> Settings:
     # Merge file-based overrides on top of env-based overrides
     file_overrides = _load_overrides()
     for role_key, cfg in file_overrides.items():
+        if role_key == OVERRIDES_TOOLS_KEY and isinstance(cfg, dict):
+            for key, value in cfg.items():
+                if hasattr(settings, key):
+                    setattr(settings, key, _coerce_bool(value))
+            continue
+        if role_key.startswith("__"):
+            continue
         if not isinstance(cfg, dict):
             continue
         role_key = role_key.lower()

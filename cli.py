@@ -261,6 +261,20 @@ def config():
         console.print(table)
         console.print()
 
+        table = Table(title="Tool Access")
+        table.add_column("Tool Set", style="cyan")
+        table.add_column("Status")
+        for name, enabled in [
+            ("Filesystem", settings.mcp_enabled),
+            ("Scratchpad", settings.scratchpad_enabled),
+            ("Enterprise Data", settings.enterprise_data_enabled),
+            ("QA Tools", settings.qa_tools_enabled),
+            ("GitHub MCP", settings.github_mcp_enabled),
+        ]:
+            table.add_row(name, "[green]enabled[/green]" if enabled else "[yellow]disabled[/yellow]")
+        console.print(table)
+        console.print()
+
         if settings.role_model_overrides or settings.role_provider_overrides:
             table = Table(title="Override Maps")
             table.add_column("Type", style="cyan")
