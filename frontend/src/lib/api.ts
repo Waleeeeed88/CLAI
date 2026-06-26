@@ -5,6 +5,17 @@ import {
 
 const BASE = "http://localhost:8000/api";
 
+async function raiseApiError(res: Response): Promise<never> {
+  let message = `API error: ${res.status}`;
+  try {
+    const data = await res.json();
+    if (typeof data?.detail === "string") message = data.detail;
+  } catch {
+    // Keep the status-only fallback when the server does not return JSON.
+  }
+  throw new Error(message);
+}
+
 export interface StartRunRequest {
   type: "pipeline";
   context?: Record<string, string>;
@@ -22,7 +33,7 @@ export async function startRun(req: StartRunRequest): Promise<string> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),
   });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) await raiseApiError(res);
   const data = await res.json();
   return data.session_id as string;
 }
@@ -33,7 +44,7 @@ export async function fetchWorkflows(): Promise<{
   stage_details: Record<string, Record<string, string>>;
 }> {
   const res = await fetch(`${BASE}/workflows`);
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) await raiseApiError(res);
   return res.json();
 }
 
@@ -45,41 +56,62 @@ export function getStreamUrl(sessionId: string): string {
   return `${BASE}/chat/${sessionId}/stream`;
 }
 
-// ── Model config ─────────────────────────────────────────────
+// Model config
 
 export interface RoleConfig {
   provider: string;
   model: string;
 }
 
+export interface TeamPreset {
+  id: string;
+  label: string;
+  description: string;
+  roles: Record<string, RoleConfig>;
+}
+
+export interface ToolConfig {
+  filesystem: boolean;
+  scratchpad: boolean;
+  enterprise_data: boolean;
+  qa_tools: boolean;
+  github_mcp: boolean;
+}
+
 export interface ModelConfigResponse {
   roles: Record<string, RoleConfig>;
   providers: string[];
+  presets: TeamPreset[];
+  active_preset: string | null;
+  tools: ToolConfig;
+  warnings: string[];
 }
 
 export async function fetchModelConfig(): Promise<ModelConfigResponse> {
   const res = await fetch(`${BASE}/config/models`);
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) await raiseApiError(res);
   return res.json();
 }
 
 export async function updateModelConfig(
   overrides: Record<string, RoleConfig>,
+  tools?: ToolConfig,
+  teamPreset?: string | null,
 ): Promise<ModelConfigResponse> {
   const res = await fetch(`${BASE}/config/models`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ overrides }),
+    body: JSON.stringify({ overrides, tools, team_preset: teamPreset }),
   });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) await raiseApiError(res);
   return res.json();
 }
 
-// ── Filesystem ───────────────────────────────────────────────
+// Filesystem
 
 export async function fetchFilesystemRoots(): Promise<FilesystemRootsResponse> {
   const res = await fetch(`${BASE}/filesystem/roots`);
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) await raiseApiError(res);
   return res.json();
 }
 
@@ -92,6 +124,6 @@ export async function fetchFilesystemEntries(
     include_files: includeFiles ? "true" : "false",
   });
   const res = await fetch(`${BASE}/filesystem/list?${params.toString()}`);
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) await raiseApiError(res);
   return res.json();
 }

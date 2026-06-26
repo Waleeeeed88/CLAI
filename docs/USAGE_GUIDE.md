@@ -780,6 +780,8 @@ MCP_ENABLED=true
 MCP_WORKSPACE_ROOT=./workspace
 ENTERPRISE_DATA_ENABLED=true
 ENTERPRISE_DATA_DIR=.clai_data
+SCRATCHPAD_ENABLED=true
+QA_TOOLS_ENABLED=true
 
 # ── Per-Role Overrides (JSON) ────────────────────
 # ROLE_MODEL_OVERRIDES={"coder": "~anthropic/claude-sonnet-latest"}
@@ -808,6 +810,18 @@ ROLE_MODEL_OVERRIDES={"coder": "~anthropic/claude-sonnet-latest"}
 ```
 
 Valid providers: `anthropic`, `openai`, `google`, `kimi`, `openrouter`
+
+### Team Presets
+
+The web Settings drawer can apply complete routing profiles:
+
+| Preset | Purpose |
+|--------|---------|
+| Cheap Team | Low-cost drafts, triage, and routine iterations |
+| Optimal Team | Balanced default for normal project work |
+| Expensive Team | Premium routing for architecture, risky changes, and final review |
+
+The same drawer also toggles filesystem, scratchpad, enterprise data, QA tools, and GitHub MCP. It shows setup warnings when a selected provider is missing an API key or a tool is enabled without required credentials.
 
 ---
 

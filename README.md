@@ -192,6 +192,8 @@ CODER_MODEL=claude-sonnet-4-6
 # Enterprise data foundation
 ENTERPRISE_DATA_ENABLED=true
 ENTERPRISE_DATA_DIR=.clai_data
+SCRATCHPAD_ENABLED=true
+QA_TOOLS_ENABLED=true
 
 # OpenRouter metadata
 OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
@@ -201,6 +203,9 @@ OPENROUTER_APP_NAME=CLAI
 ROLE_PROVIDER_OVERRIDES={"coder": "openrouter"}
 ROLE_MODEL_OVERRIDES={"coder": "~anthropic/claude-sonnet-latest"}
 ```
+
+The web Settings drawer also includes three team presets:
+`Cheap Team` for low-cost iterations, `Optimal Team` for default work, and `Expensive Team` for high-risk architecture/review passes. Tool access can be toggled there for filesystem, scratchpad, enterprise data, QA tools, and GitHub MCP.
 
 Get keys from: [Anthropic](https://console.anthropic.com) · [OpenAI](https://platform.openai.com/api-keys) · [Google](https://aistudio.google.com/apikey) · [OpenRouter](https://openrouter.ai/keys) · [GitHub](https://github.com/settings/tokens)
 

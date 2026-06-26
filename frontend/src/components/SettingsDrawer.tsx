@@ -9,6 +9,8 @@ import {
   fetchModelConfig,
   updateModelConfig,
   type RoleConfig,
+  type TeamPreset,
+  type ToolConfig,
 } from "../lib/api";
 
 interface Props {
@@ -21,6 +23,10 @@ type RoleOverrides = Record<string, RoleConfig>;
 export function SettingsDrawer({ open, onClose }: Props) {
   const [config, setConfig] = useState<RoleOverrides>({});
   const [providers, setProviders] = useState<string[]>([]);
+  const [presets, setPresets] = useState<TeamPreset[]>([]);
+  const [activePreset, setActivePreset] = useState<string | null>(null);
+  const [tools, setTools] = useState<ToolConfig | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -35,8 +41,12 @@ export function SettingsDrawer({ open, onClose }: Props) {
       .then((res) => {
         setConfig(res.roles);
         setProviders(res.providers);
+        setPresets(res.presets);
+        setActivePreset(res.active_preset);
+        setTools(res.tools);
+        setWarnings(res.warnings);
       })
-      .catch(() => setError("Failed to load config"))
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load config"))
       .finally(() => setLoading(false));
   }, [open]);
 
@@ -49,6 +59,7 @@ export function SettingsDrawer({ open, onClose }: Props) {
         model: DEFAULT_MODELS[provider]?.[0] ?? prev[role]?.model ?? "",
       },
     }));
+    setActivePreset(null);
     setSaved(false);
   };
 
@@ -57,6 +68,18 @@ export function SettingsDrawer({ open, onClose }: Props) {
       ...prev,
       [role]: { ...prev[role], model },
     }));
+    setActivePreset(null);
+    setSaved(false);
+  };
+
+  const handlePreset = (preset: TeamPreset) => {
+    setConfig(preset.roles);
+    setActivePreset(preset.id);
+    setSaved(false);
+  };
+
+  const handleToolChange = (key: keyof ToolConfig, value: boolean) => {
+    setTools((prev) => (prev ? { ...prev, [key]: value } : prev));
     setSaved(false);
   };
 
@@ -64,12 +87,15 @@ export function SettingsDrawer({ open, onClose }: Props) {
     setSaving(true);
     setError(null);
     try {
-      const res = await updateModelConfig(config);
+      const res = await updateModelConfig(activePreset ? {} : config, tools ?? undefined, activePreset);
       setConfig(res.roles);
+      setTools(res.tools);
+      setWarnings(res.warnings);
+      setActivePreset(res.active_preset);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch {
-      setError("Failed to save config");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save config");
     } finally {
       setSaving(false);
     }
@@ -162,7 +188,65 @@ export function SettingsDrawer({ open, onClose }: Props) {
                       <Loader2 className="h-6 w-6 animate-spin text-clai-muted" />
                     </div>
                   ) : (
-                    <div className="mt-5 space-y-4">
+                    <div className="mt-5 space-y-5">
+                      {presets.length > 0 && (
+                        <div>
+                          <h4 className="text-[10px] font-semibold uppercase tracking-[0.22em] text-clai-muted">
+                            Teams
+                          </h4>
+                          <div className="mt-2 grid gap-2">
+                            {presets.map((preset) => (
+                              <button
+                                key={preset.id}
+                                type="button"
+                                onClick={() => handlePreset(preset)}
+                                className={cn(
+                                  "rounded-2xl border px-4 py-3 text-left transition-colors",
+                                  activePreset === preset.id
+                                    ? "border-white/25 bg-white/[0.1]"
+                                    : "border-white/8 bg-black/15 hover:border-white/15",
+                                )}
+                              >
+                                <span className="block text-sm font-semibold text-clai-text">
+                                  {preset.label}
+                                </span>
+                                <span className="mt-1 block text-xs text-clai-muted">
+                                  {preset.description}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {warnings.length > 0 && (
+                        <div className="rounded-2xl border border-clai-warning/20 bg-clai-warning/10 px-4 py-3">
+                          <h4 className="text-[10px] font-semibold uppercase tracking-[0.22em] text-clai-warning">
+                            Setup
+                          </h4>
+                          <ul className="mt-2 space-y-1 text-xs text-clai-warning">
+                            {warnings.map((warning) => (
+                              <li key={warning}>{warning}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {tools && (
+                        <div>
+                          <h4 className="text-[10px] font-semibold uppercase tracking-[0.22em] text-clai-muted">
+                            Tool Access
+                          </h4>
+                          <div className="mt-2 grid gap-2">
+                            <ToolToggle label="Filesystem" checked={tools.filesystem} onChange={(value) => handleToolChange("filesystem", value)} />
+                            <ToolToggle label="Scratchpad" checked={tools.scratchpad} onChange={(value) => handleToolChange("scratchpad", value)} />
+                            <ToolToggle label="Enterprise Data" checked={tools.enterprise_data} onChange={(value) => handleToolChange("enterprise_data", value)} />
+                            <ToolToggle label="QA Tools" checked={tools.qa_tools} onChange={(value) => handleToolChange("qa_tools", value)} />
+                            <ToolToggle label="GitHub MCP" checked={tools.github_mcp} onChange={(value) => handleToolChange("github_mcp", value)} />
+                          </div>
+                        </div>
+                      )}
+
                       {roles.map((role) => {
                         const agent = AGENTS[role];
                         const roleConfig = config[role];
@@ -252,6 +336,28 @@ export function SettingsDrawer({ open, onClose }: Props) {
         </>
       )}
     </AnimatePresence>
+  );
+}
+
+function ToolToggle({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <label className="flex items-center justify-between rounded-2xl border border-white/8 bg-black/15 px-4 py-3">
+      <span className="text-sm text-clai-text">{label}</span>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="h-4 w-4 accent-white"
+      />
+    </label>
   );
 }
 
