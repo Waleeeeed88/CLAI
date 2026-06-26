@@ -1,286 +1,178 @@
-# CLAI — Command Line AI Team
+# CLAI
 
-> Your AI dev team in the terminal. Claude architects, GPT analyses, Gemini codes — and they all use real tools.
+<p align="center">
+  <strong>A configurable multi-agent AI engineering team for your terminal and browser.</strong>
+</p>
 
+<p align="center">
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+  <img alt="Python" src="https://img.shields.io/badge/python-3.11%2B-3776AB.svg">
+  <img alt="FastAPI" src="https://img.shields.io/badge/api-FastAPI-009688.svg">
+  <img alt="Next.js" src="https://img.shields.io/badge/ui-Next.js-000000.svg">
+  <img alt="Agents" src="https://img.shields.io/badge/agents-configurable-7C3AED.svg">
+</p>
+
+<p align="center">
+  <img alt="CLAI terminal demo" src="docs/assets/clai-terminal.gif" width="900">
+</p>
+
+CLAI turns a product request into a coordinated engineering workflow. A senior
+architect, business analyst, coders, QA, and reviewer can plan, implement, test,
+review, and document work while using real tools against your local workspace.
+
+## Highlights
+
+- Multi-agent delivery workflows for planning, implementation, QA, review, and handoff.
+- Configurable model teams: `cheap`, `optimal`, and `expensive` presets.
+- Provider routing across Anthropic, OpenAI, Google Gemini, Kimi, and OpenRouter.
+- Tool controls for filesystem access, scratchpad memory, enterprise data, QA tools, and GitHub MCP.
+- Local enterprise data layer for catalog search, semantic retrieval, knowledge graph facts, audit logs, memory, prompt cache, and cost estimates.
+- Terminal shell, CLI commands, and a Next.js web UI over a FastAPI backend.
+
+## Workflow
+
+<p align="center">
+  <img alt="CLAI workflow" src="docs/assets/clai-workflow.gif" width="900">
+</p>
+
+```text
+You describe the goal
+        |
+        v
+BA -> Senior Dev -> Coder -> QA -> Reviewer
+        |
+        v
+Issues, files, tests, PR notes, delivery docs
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                                                                     │
-│   You ──► kickoff my-api                                            │
-│                │                                                    │
-│   📋 Planning ──► 🏗️ Setup ──► ⚡ Build ──► 🧪 QA ──► 🔍 Review    │
-│                                                                     │
-│   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐           │
-│   │  Claude   │  │  GPT     │  │  Gemini  │  │  Claude   │          │
-│   │  Opus 4.5 │  │  5.2     │  │  3 Pro   │  │  Sonnet   │          │
-│   └──────────┘  └──────────┘  └──────────┘  └──────────┘           │
-│   Senior Dev     BA            Coder 2       Reviewer               │
-│                                                                     │
-│   📦 Result: GitHub repo + branches + PRs + tests + delivery doc    │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
----
 
 ## Quick Start
 
-```bash
-# 1. Clone & install
-git clone <repo-url> CLAI && cd CLAI
-python -m venv venv && .\venv\Scripts\Activate.ps1   # Windows
+```powershell
+git clone https://github.com/Waleeeeed88/CLAI.git
+cd CLAI
+
+python -m venv venv
+.\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 
-# 2. Add API keys
-cp .env.example .env   # Then edit with your keys
+Copy-Item .env.example .env
+# Edit .env with the provider keys you want to use.
 
-# 3. Launch
 python shell.py
 ```
 
----
+For the web UI:
 
-## The Team
-
-| Role | @Mention | Model | Specialty |
-|------|----------|-------|-----------|
-| **Senior Dev** | `@senior` | Claude Opus 4.8 | Architecture, system design, tech leadership |
-| **Coder** | `@dev` | Claude Sonnet 4.6 | Primary implementation, features, bug fixes |
-| **Coder 2** | `@dev2` | Gemini 3.1 Pro | Large-context secondary coder |
-| **QA** | `@qa` | Gemini 3.5 Flash | Testing, bug hunting, Excel test plans |
-| **BA** | `@ba` | GPT 5.5 | Requirements, user stories, GitHub issues |
-| **Reviewer** | `@reviewer` | Claude Sonnet 4.6 | Code review, PR feedback |
-
----
-
-## What Can It Do?
-
-### Talk to Individual Agents
-
-```
-clai> @senior design a REST API for user auth
-clai> @dev implement that in Python > api.py
-clai> @qa review this < api.py
+```powershell
+python web.py
+cd frontend
+npm install
+npm run dev
 ```
 
-### Run Multi-Agent Workflows
+## Agent Team
 
-```
-clai> workflow feature
-> Requirement: User authentication with OAuth
+| Role | Mention | Default responsibility |
+| --- | --- | --- |
+| Senior Dev | `@senior` | Architecture, tradeoffs, delivery direction |
+| Coder | `@dev` | Primary implementation |
+| Coder 2 | `@dev2` | Secondary implementation and large-context coding |
+| Coder 3 | `@dev3` | Extra coding pass with alternate provider routing |
+| QA | `@qa` | Test strategy, test plans, verification |
+| BA | `@ba` | Requirements, user stories, issue shaping |
+| Reviewer | `@reviewer` | Code review and release confidence |
 
-   BA ──► QA ──► Senior Dev ──► Coder ──► Coder 2
-   stories  tests  architecture  implement  refine
-```
+## Model Teams
 
-**8 workflows:** `feature` · `review` · `bugfix` · `architecture` · `project_setup` · `full_feature` · `pr_review` · `test_and_verify`
+CLAI ships with three complete routing presets:
 
-### Kick Off a Full Project
+| Preset | Use it for |
+| --- | --- |
+| Cheap Team | Low-cost triage, drafts, and routine iterations |
+| Optimal Team | Balanced day-to-day product work |
+| Expensive Team | Architecture, high-risk changes, and final review |
 
-```
-clai> kickoff my-auth-api
-> Describe the project: REST API with JWT auth, roles, and OAuth
-
-📋 Planning    → BA creates user stories + GitHub issues
-🏗️ Setup       → Senior Dev architects, scaffolds repo + branches
-⚡ Build       → Two coders implement on feature branches, create PRs
-🧪 Quality     → QA writes tests, Excel test plan, runs pytest
-🔍 Review      → Reviewer reviews PRs on GitHub
-📦 Delivery    → Senior Dev writes DELIVERY.md + localhost instructions
-```
-
-### Team Roundtable Discussions
-
-```
-clai> @team Should we use REST or GraphQL?
-```
-
-Each agent responds in turn, reacting to previous answers.
-
----
-
-## Tool System
-
-Agents don't just generate text — they **use real tools**:
-
-| Category | Tools | Who Gets Them |
-|----------|-------|---------------|
-| **Filesystem** | `read_file`, `write_file`, `get_tree`, `grep`, ... | All agents |
-| **Enterprise Data** | `data_source_search`, `semantic_search`, `knowledge_graph_query`, `agent_memory_search`, ... | All agents |
-| **Governance & Cost** | `governance_check`, `audit_log_tail`, `cost_estimate`, `model_route_recommend`, `prompt_cache_lookup` | All agents |
-| **GitHub** | `create_repository`, `create_branch`, `push_files`, `create_pull_request`, ... | Role-scoped |
-| **QA** | `create_test_plan_excel`, `run_tests` | QA |
-
-All tool usage is **native function calling** — not prompt-based hacks. Each provider uses its own format (Anthropic `tool_use`, OpenAI `tool_calls`, Gemini `function_call`).
-
-```
-clai> tools              # See all tools
-clai> tools senior_dev   # See Senior Dev's tools
-clai> github             # Check GitHub connection
-```
-
-### Enterprise Data Foundation
-
-CLAI includes a local, durable enterprise data layer under `workspace/.clai_data`:
-
-- Metadata catalog for databases, APIs, documents, tools, and enterprise systems
-- Knowledge graph facts for business entities and relationships
-- Lightweight semantic retrieval for grounding agents before they answer
-- Cross-session agent memory and workflow checkpoints
-- Governance checks, audit log, prompt cache, and model cost recommendations
-
-This is dependency-free for local use. The tool interfaces are shaped so the backing store can later move to Neo4j, pgvector, OpenSearch, Milvus, Weaviate, Pinecone, or MCP-backed enterprise tools.
-
----
-
-## GitHub Integration
-
-When configured, agents interact with GitHub directly:
-
-- **BA** creates repositories and issues for user stories
-- **Senior Dev** creates branches and manages repo structure
-- **Coders** push code to feature branches and create PRs
-- **QA** files issues for bugs found during testing
-- **Reviewer** posts reviews on pull requests
+You can also override every role manually from `.env`, `config/overrides.json`,
+or the web Settings drawer.
 
 ```ini
-# .env
-GITHUB_TOKEN=ghp_your_token
-GITHUB_MCP_ENABLED=true
-```
-
-Uses the official [Model Context Protocol](https://modelcontextprotocol.io/) GitHub server.
-
----
-
-## File I/O
-
-```
-@dev write a CLI tool > mycli.py      # Save output to file
-@qa look at this < broken.py          # Load file as input
-@senior review < src/                 # Load entire folder
-save output.md                        # Save last response
-```
-
-All file paths are relative to `workspace/` (sandboxed).
-
----
-
-## Configuration
-
-### Provider Keys
-
-```ini
-# .env - add only the providers you route roles to
 ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-...
 GOOGLE_API_KEY=AI...
 KIMI_API_KEY=sk-...
 OPENROUTER_API_KEY=sk-or-...
-```
 
-### Optional
-
-```ini
-# GitHub
-GITHUB_TOKEN=ghp_...
-GITHUB_MCP_ENABLED=true
-
-# Model overrides
-SENIOR_DEV_MODEL=claude-opus-4-8
-CODER_MODEL=claude-sonnet-4-6
-
-# Enterprise data foundation
-ENTERPRISE_DATA_ENABLED=true
-ENTERPRISE_DATA_DIR=.clai_data
-SCRATCHPAD_ENABLED=true
-QA_TOOLS_ENABLED=true
-
-# OpenRouter metadata
-OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
-OPENROUTER_APP_NAME=CLAI
-
-# Per-role provider override (JSON)
 ROLE_PROVIDER_OVERRIDES={"coder": "openrouter"}
 ROLE_MODEL_OVERRIDES={"coder": "~anthropic/claude-sonnet-latest"}
 ```
 
-The web Settings drawer also includes three team presets:
-`Cheap Team` for low-cost iterations, `Optimal Team` for default work, and `Expensive Team` for high-risk architecture/review passes. Tool access can be toggled there for filesystem, scratchpad, enterprise data, QA tools, and GitHub MCP.
+## Tooling
 
-Get keys from: [Anthropic](https://console.anthropic.com) · [OpenAI](https://platform.openai.com/api-keys) · [Google](https://aistudio.google.com/apikey) · [OpenRouter](https://openrouter.ai/keys) · [GitHub](https://github.com/settings/tokens)
+Agents use structured tool calls, not prompt-only simulations.
 
----
+| Tool set | What it enables |
+| --- | --- |
+| Filesystem | Read, write, search, and inspect workspace files |
+| Scratchpad | Cross-step working memory |
+| Enterprise Data | Catalog, graph, semantic search, memory, governance, audit, cost controls |
+| QA Tools | Excel test plans and test runner access |
+| GitHub MCP | Repository, branch, issue, pull request, and review workflows |
 
-## Commands Reference
+Tool access can be toggled from configuration so a cheap drafting run does not
+need the same capabilities as a full delivery run.
 
-| Command | Description |
-|---------|-------------|
-| `@<role> <prompt>` | Talk to a specific agent |
-| `@team <prompt>` | Roundtable discussion |
-| `kickoff [name]` | Full project pipeline (6 phases) |
-| `workflow <name>` | Run a named workflow |
-| `stage <name>` | Run a structured discussion |
-| `tools [role]` | Inspect agent tools |
-| `github` | GitHub MCP status |
-| `team` | Show team roster |
-| `config` | Check API key status |
-| `workspace` | Show workspace path |
-| `files` / `tree` | Browse workspace files |
-| `save <file>` | Save last response |
-| `help` | Full command list |
+## Common Commands
 
----
+```text
+@senior design a REST API for user auth
+@dev implement that in Python > auth_api.py
+@qa review this < auth_api.py
 
-## Project Structure
+workflow feature
+kickoff my-auth-api
+@team should this be REST or GraphQL?
 
+tools
+config
+team
+workspace
 ```
+
+## Project Layout
+
+```text
 CLAI/
-├── shell.py                  # Entry point
-├── cli.py                    # CLI (non-interactive)
-├── shell/
-│   ├── main.py               # Shell logic, commands, @mention parsing
-│   ├── constants.py          # Commands, aliases, workflow lists
-│   └── completer.py          # Tab completion
-├── agents/
-│   ├── base.py               # BaseAgent — tool-call loop, message mgmt
-│   ├── claude_agent.py       # Anthropic provider
-│   ├── gpt_agent.py          # OpenAI provider
-│   ├── gemini_agent.py       # Google provider
-│   └── factory.py            # Role → Provider → Agent creation
-├── roles/                    # System prompts per role
-│   ├── senior_dev.py
-│   ├── coder.py / coder_2.py
-│   ├── qa.py / ba.py / reviewer.py
-│   └── base.py              # RoleConfig dataclass
-├── core/
-│   ├── orchestrator.py       # Mediator — ask(), run_workflow(), roundtable
-│   ├── pipeline.py           # ProjectPipeline — 6-phase kickoff
-│   ├── tool_registry.py      # Tool definitions + provider format converters
-│   ├── filesystem_tools.py   # Sandboxed file operations
-│   ├── mcp_client.py         # MCP SDK client wrapper
-│   ├── mcp_bridge.py         # MCP → ToolRegistry bridge (role-scoped)
-│   ├── excel_tools.py        # Excel test plan generation
-│   ├── test_runner.py        # pytest execution
-│   ├── enterprise_data.py    # Catalog, graph, retrieval, memory, governance, cost tools
-│   ├── workflows.py          # WorkflowStep/Result dataclasses
-│   └── filesystem.py         # Low-level file ops
-├── config/
-│   └── settings.py           # Pydantic Settings, .env loading
-├── workspace/                # Sandboxed agent file area
-├── docs/
-│   └── USAGE_GUIDE.md        # Comprehensive usage documentation
-└── .env                      # Your API keys (gitignored)
+  agents/      Provider adapters and agent factory
+  config/      Settings, model routing, team presets
+  core/        Orchestrator, pipeline, tools, enterprise data layer
+  frontend/    Next.js UI
+  roles/       Role prompts and runtime defaults
+  shell/       Interactive terminal shell
+  web/         FastAPI routes and schemas
+  workspace/   Sandboxed working directory
 ```
-
----
 
 ## Documentation
 
-- **[Usage Guide](docs/USAGE_GUIDE.md)** — Complete reference: all commands, workflows, pipeline, tools, configuration, extension guide
-- **[Onboarding](onboarding.md)** — Developer onboarding: codebase walkthrough, how things connect
+- [Usage Guide](docs/USAGE_GUIDE.md) - commands, workflows, tools, config, and extension points.
+- [Onboarding](onboarding.md) - developer walkthrough for the codebase.
 
----
+## Development
+
+```powershell
+.\venv\Scripts\python.exe -m pytest
+.\venv\Scripts\python.exe -m compileall config core web tests cli.py shell.py
+
+cd frontend
+npm run build
+```
+
+## Contributing
+
+Issues and pull requests are welcome. Keep changes focused, include a small
+test or verification note when behavior changes, and prefer existing patterns
+over new abstractions.
 
 ## License
 
-MIT — do whatever you want with it.
+MIT. See [LICENSE](LICENSE).
