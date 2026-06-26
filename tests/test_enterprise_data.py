@@ -97,3 +97,30 @@ def test_registry_exposes_cost_and_governance_tools(tmp_path: Path):
 
     assert "estimated_cost_usd" in estimate
     assert '"allowed": false' in decision
+
+
+def test_registry_accepts_stringified_numeric_tool_args(tmp_path: Path):
+    foundation = EnterpriseDataFoundation(tmp_path)
+    registry = build_enterprise_data_registry(foundation, "senior_dev")
+
+    registry.execute(
+        "semantic_document_index",
+        {
+            "doc_id": "api-guide",
+            "title": "API Guide",
+            "content": "Grounding retrieval and metadata API design",
+        },
+    )
+    results = registry.execute("semantic_search", {"query": "metadata API", "limit": "1"})
+    estimate = registry.execute(
+        "model_route_recommend",
+        {
+            "task_type": "qa",
+            "quality": "economy",
+            "max_cost_usd": "0.01",
+            "prompt": "small validation pass",
+        },
+    )
+
+    assert '"doc_id": "api-guide"' in results
+    assert "recommended_model" in estimate

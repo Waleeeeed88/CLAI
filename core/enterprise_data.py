@@ -13,13 +13,13 @@ import re
 import threading
 import time
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from config import get_settings
-from core.metrics import COST_TABLE
-from core.tool_registry import ToolParameter, ToolRegistry
+from .metrics import COST_TABLE
+from .tool_registry import ToolParameter, ToolRegistry
 
 
 SENSITIVITY_ORDER = ("public", "internal", "confidential", "restricted")
@@ -39,7 +39,7 @@ def _now() -> float:
 
 
 def _normalize_sensitivity(value: str) -> str:
-    value = (value or "internal").strip().lower()
+    value = str(value or "internal").strip().lower()
     return value if value in SENSITIVITY_ORDER else "internal"
 
 
@@ -61,6 +61,22 @@ def _cosine(a: Counter, b: Counter) -> float:
 
 def _estimate_tokens(text: str) -> int:
     return max(1, math.ceil(len(text or "") / 4))
+
+
+def _bounded_int(value: Any, default: int, lower: int = 1, upper: int = 100) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        parsed = default
+    return max(lower, min(parsed, upper))
+
+
+def _bounded_float(value: Any, default: float, lower: float = 0.0, upper: float = 1.0) -> float:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        parsed = default
+    return max(lower, min(parsed, upper))
 
 
 @dataclass
@@ -91,7 +107,7 @@ class EnterpriseDataFoundation:
             return default
         try:
             return json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
+        except (OSError, json.JSONDecodeError):
             return default
 
     def _save(self, path: Path, data: Any) -> None:
@@ -114,6 +130,8 @@ class EnterpriseDataFoundation:
     ) -> GovernanceDecision:
         sensitivity = _normalize_sensitivity(sensitivity)
         allowed = self._clearance_allows(actor, sensitivity)
+        action = str(action or "")
+        resource = str(resource or "")
         if action.startswith("delete") and actor not in ("senior_dev", "reviewer"):
             allowed = False
             reason = "Only senior_dev or reviewer can approve destructive actions."
@@ -156,7 +174,8 @@ class EnterpriseDataFoundation:
     def audit_tail(self, limit: int = 20) -> List[Dict[str, Any]]:
         if not self.audit_path.exists():
             return []
-        lines = self.audit_path.read_text(encoding="utf-8").splitlines()[-max(1, min(limit, 200)) :]
+        limit = _bounded_int(limit, default=20, upper=200)
+        lines = self.audit_path.read_text(encoding="utf-8").splitlines()[-limit:]
         events: List[Dict[str, Any]] = []
         for line in lines:
             try:
@@ -202,6 +221,7 @@ class EnterpriseDataFoundation:
         return {"ok": True, "source": entry}
 
     def search_sources(self, actor: str, query: str, limit: int = 10) -> Dict[str, Any]:
+        limit = _bounded_int(limit, default=10, upper=50)
         q = Counter(_tokenize(query))
         with self._lock:
             entries = list(self._load(self.catalog_path, {}).values())
@@ -218,7 +238,7 @@ class EnterpriseDataFoundation:
             if score > 0 or not query.strip():
                 scored.append((score, entry))
         scored.sort(key=lambda item: item[0], reverse=True)
-        results = [{"score": round(score, 4), **entry} for score, entry in scored[: max(1, min(limit, 50))]]
+        results = [{"score": round(score, 4), **entry} for score, entry in scored[:limit]]
         self.audit(actor, "catalog.search", query[:120], True, {"results": len(results)})
         return {"results": results}
 
@@ -243,7 +263,7 @@ class EnterpriseDataFoundation:
             "predicate": predicate.strip(),
             "object": obj.strip(),
             "source": source.strip(),
-            "confidence": max(0.0, min(float(confidence), 1.0)),
+            "confidence": _bounded_float(confidence, default=0.8),
             "sensitivity": sensitivity,
             "updated_at": _now(),
             "updated_by": actor,
@@ -258,6 +278,7 @@ class EnterpriseDataFoundation:
         return {"ok": True, "fact": fact}
 
     def query_graph(self, actor: str, entity: str, limit: int = 20) -> Dict[str, Any]:
+        limit = _bounded_int(limit, default=20)
         entity_l = entity.strip().lower()
         with self._lock:
             facts = self._load(self.graph_path, {"facts": []}).get("facts", [])
@@ -273,7 +294,7 @@ class EnterpriseDataFoundation:
             ):
                 results.append(fact)
         results.sort(key=lambda f: (f.get("confidence", 0), f.get("updated_at", 0)), reverse=True)
-        results = results[: max(1, min(limit, 100))]
+        results = results[:limit]
         self.audit(actor, "graph.query", entity[:120], True, {"results": len(results)})
         return {"facts": results}
 
@@ -313,6 +334,7 @@ class EnterpriseDataFoundation:
         return {"ok": True, "doc_id": document["doc_id"], "tokens": sum(tokens.values())}
 
     def semantic_search(self, actor: str, query: str, limit: int = 5) -> Dict[str, Any]:
+        limit = _bounded_int(limit, default=5, upper=25)
         q = Counter(_tokenize(query))
         with self._lock:
             docs = self._load(self.index_path, {"documents": []}).get("documents", [])
@@ -326,7 +348,7 @@ class EnterpriseDataFoundation:
                 scored.append((score, doc))
         scored.sort(key=lambda item: item[0], reverse=True)
         results = []
-        for score, doc in scored[: max(1, min(limit, 25))]:
+        for score, doc in scored[:limit]:
             content = doc.get("content", "")
             results.append(
                 {
@@ -372,6 +394,7 @@ class EnterpriseDataFoundation:
         return {"ok": True, "memory": entry}
 
     def search_memory(self, actor: str, query: str, namespace: str = "", limit: int = 10) -> Dict[str, Any]:
+        limit = _bounded_int(limit, default=10, upper=50)
         q = Counter(_tokenize(query))
         with self._lock:
             memory = self._load(self.memory_path, {})
@@ -390,7 +413,7 @@ class EnterpriseDataFoundation:
             if score > 0 or not query.strip():
                 scored.append((score, entry))
         scored.sort(key=lambda item: item[0], reverse=True)
-        results = [{"score": round(score, 4), **entry} for score, entry in scored[: max(1, min(limit, 50))]]
+        results = [{"score": round(score, 4), **entry} for score, entry in scored[:limit]]
         self.audit(actor, "memory.search", query[:120], True, {"results": len(results), "namespace": namespace})
         return {"results": results}
 
@@ -483,7 +506,7 @@ def _split_tags(tags: str) -> List[str]:
 
 def _cost_estimate(model: str, prompt: str, expected_output_tokens: int) -> Dict[str, Any]:
     input_tokens = _estimate_tokens(prompt)
-    output_tokens = max(0, int(expected_output_tokens))
+    output_tokens = _bounded_int(expected_output_tokens, default=1000, lower=0, upper=200000)
     input_rate, output_rate = COST_TABLE.get(model, (0.003, 0.015))
     cost = (input_tokens / 1000 * input_rate) + (output_tokens / 1000 * output_rate)
     return {
@@ -497,6 +520,7 @@ def _cost_estimate(model: str, prompt: str, expected_output_tokens: int) -> Dict
 def _recommend_model(task_type: str, quality: str, max_cost_usd: float, prompt: str) -> Dict[str, Any]:
     task = (task_type or "general").lower()
     quality = (quality or "balanced").lower()
+    budget = _bounded_float(max_cost_usd, default=0.05, upper=100.0)
     if "architecture" in task or "reason" in task:
         candidates = ["claude-opus-4-8", "claude-sonnet-4-6", "gpt-5.5", "gemini-3.1-pro-preview"]
     elif "qa" in task or "test" in task or quality == "economy":
@@ -507,7 +531,7 @@ def _recommend_model(task_type: str, quality: str, max_cost_usd: float, prompt: 
         candidates = ["gpt-5.4-mini", "gemini-3.5-flash", "claude-sonnet-4-6", "gpt-5.5"]
 
     estimates = [_cost_estimate(model, prompt, 1000) for model in candidates]
-    affordable = [item for item in estimates if item["estimated_cost_usd"] <= max_cost_usd]
+    affordable = [item for item in estimates if item["estimated_cost_usd"] <= budget]
     choice = affordable[0] if affordable else min(estimates, key=lambda item: item["estimated_cost_usd"])
     return {
         "recommended_model": choice["model"],
@@ -522,6 +546,24 @@ def build_enterprise_data_registry(
 ) -> ToolRegistry:
     foundation = foundation or get_enterprise_data_foundation()
     registry = ToolRegistry()
+
+    def _upsert_fact(
+        subject: str,
+        predicate: str,
+        source: str = "",
+        confidence: float = 0.8,
+        sensitivity: str = "internal",
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        return foundation.upsert_fact(
+            role_name,
+            subject,
+            predicate,
+            str(kwargs.get("object", "")),
+            source,
+            confidence,
+            sensitivity,
+        )
 
     registry.register(
         name="data_source_register",
@@ -561,9 +603,7 @@ def build_enterprise_data_registry(
             ToolParameter("confidence", "number", "0.0 to 1.0 confidence score", required=False),
             ToolParameter("sensitivity", "string", "public, internal, confidential, restricted", required=False, enum=list(SENSITIVITY_ORDER)),
         ],
-        handler=lambda subject, predicate, object, source="", confidence=0.8, sensitivity="internal": foundation.upsert_fact(
-            role_name, subject, predicate, object, source, confidence, sensitivity
-        ),
+        handler=_upsert_fact,
     )
 
     registry.register(
@@ -660,9 +700,9 @@ def build_enterprise_data_registry(
             ToolParameter("sensitivity", "string", "public, internal, confidential, restricted", required=False, enum=list(SENSITIVITY_ORDER)),
             ToolParameter("purpose", "string", "Business reason for the action", required=False),
         ],
-        handler=lambda action, resource, sensitivity="internal", purpose="": foundation.governance_check(
-            role_name, action, resource, sensitivity, purpose
-        ).__dict__,
+        handler=lambda action, resource, sensitivity="internal", purpose="": asdict(
+            foundation.governance_check(role_name, action, resource, sensitivity, purpose)
+        ),
     )
 
     registry.register(
