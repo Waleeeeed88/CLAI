@@ -35,6 +35,7 @@ class Orchestrator:
         self._stages: Dict[str, Dict[str, str]] = {}
         self._extra_registries: Dict[Role, ToolRegistry] = {}
         self._scratchpad = Scratchpad()
+        self._enterprise_data_registry: Optional[ToolRegistry] = None
         self._on_fallback: Optional[Any] = None  # callback for fallback events
 
         settings = get_settings()
@@ -77,6 +78,17 @@ class Orchestrator:
             self._test_runner_registry = build_test_runner_registry(settings.workspace_path)
         except Exception as e:
             logger.debug(f"Test runner not available: {e}")
+
+        # Enterprise data foundation tools: metadata, retrieval, memory, governance, audit, cost controls.
+        if getattr(settings, "enterprise_data_enabled", True):
+            try:
+                from .enterprise_data import build_enterprise_data_registry, get_enterprise_data_foundation
+                foundation = get_enterprise_data_foundation(
+                    settings.workspace_path / settings.enterprise_data_dir
+                )
+                self._enterprise_data_registry = build_enterprise_data_registry(foundation, "system")
+            except Exception as e:
+                logger.debug(f"Enterprise data tools not available: {e}")
 
         # GitHub MCP — store settings for lazy init (connected on first use)
         if settings.github_mcp_enabled and settings.github_token:
@@ -200,6 +212,15 @@ class Orchestrator:
         # Scratchpad tools for all roles
         scratchpad_reg = build_scratchpad_registry(self._scratchpad, role.value)
         registry.merge(scratchpad_reg)
+
+        # Enterprise data and cost-control tools for all roles, bound to caller role.
+        if self._enterprise_data_registry:
+            from .enterprise_data import build_enterprise_data_registry, get_enterprise_data_foundation
+            settings = get_settings()
+            foundation = get_enterprise_data_foundation(
+                settings.workspace_path / settings.enterprise_data_dir
+            )
+            registry.merge(build_enterprise_data_registry(foundation, role.value))
 
         # Extra tools registered externally
         extra = self._extra_registries.get(role)

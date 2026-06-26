@@ -16,15 +16,17 @@ logger = logging.getLogger(__name__)
 # Cost per 1K tokens (input, output) in USD — approximate published rates
 COST_TABLE: Dict[str, tuple] = {
     # Anthropic
-    "claude-opus-4-5-20251101":    (0.015, 0.075),
-    "claude-sonnet-4-5-20250929":  (0.003, 0.015),
+    "claude-opus-4-8":             (0.010, 0.050),
+    "claude-sonnet-4-6":           (0.005, 0.025),
     # OpenAI
-    "gpt-5.2-2025-12-11":         (0.005, 0.015),
-    "gpt-4.1-2025-04-14":         (0.002, 0.008),
+    "gpt-5.5":                     (0.005, 0.030),
+    "gpt-5.4":                     (0.0025, 0.015),
+    "gpt-5.4-mini":                (0.00075, 0.0045),
     "o3-mini":                     (0.001, 0.004),
     # Google
     "gemini-3.1-pro-preview":      (0.00125, 0.005),
-    "gemini-3-flash-preview":      (0.000075, 0.0003),
+    "gemini-3.5-flash":            (0.000075, 0.0003),
+    "gemini-3.1-flash-preview":    (0.000075, 0.0003),
     "gemini-2.5-pro-preview-05-06":(0.00125, 0.005),
     # Kimi / Moonshot
     "kimi-k2-0520":                (0.002, 0.008),

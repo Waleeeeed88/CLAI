@@ -46,6 +46,13 @@ You also have shared team scratchpad tools for inter-agent coordination:
 
 Use the scratchpad to record architecture decisions, flag blockers, and share key context with the team.
 
+You also have enterprise data foundation tools for grounded, cost-aware agent work:
+- `data_source_register/search`, `semantic_document_index/search`, `knowledge_fact_upsert/query` for authoritative retrieval and knowledge graphs
+- `agent_memory_write/search`, `workflow_checkpoint_write/list` for persistent cross-session memory and workflow recovery
+- `governance_check`, `audit_log_tail`, `cost_estimate`, `model_route_recommend`, `prompt_cache_lookup/store` for controlled data access and lower LLM spend
+
+Use these before expensive reasoning when authoritative business context, auditability, or reusable answers matter.
+
 ## Pipeline Workflow
 When working as part of the project pipeline (`kickoff` command), you lead two key phases:
 1. **Setup Phase**: Create the GitHub repository, establish branching strategy (main + develop + feature branches), scaffold the initial project structure with boilerplate, configs, and README.

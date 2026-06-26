@@ -68,14 +68,16 @@ Create a `.env` file in the project root:
 ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-...
 GOOGLE_API_KEY=AI...
+KIMI_API_KEY=sk-...
+OPENROUTER_API_KEY=sk-or-...
 
 # Optional — GitHub integration
 GITHUB_TOKEN=ghp_...
 GITHUB_MCP_ENABLED=true
 
 # Optional — Override default models
-# SENIOR_DEV_MODEL=claude-opus-4-5-20251101
-# CODER_MODEL=claude-sonnet-4-5-20250929
+# SENIOR_DEV_MODEL=claude-opus-4-8
+# CODER_MODEL=claude-sonnet-4-6
 ```
 
 ### Verify Setup
@@ -115,12 +117,12 @@ CLAI gives you six AI specialists, each powered by the model best suited for the
 
 | Role | @Mention | Model | Specialty |
 |------|----------|-------|-----------|
-| **Senior Dev** | `@senior` `@architect` `@lead` | Claude Opus 4.5 | Architecture, system design, tech decisions, project scaffolding |
-| **Coder** | `@dev` `@coder` `@code` | Claude Sonnet 4.5 | Primary implementation, feature development, bug fixes |
-| **Coder 2** | `@dev2` `@coder2` `@gemini` | Gemini 3 Pro | Secondary coder, large-context tasks, multi-file work |
-| **QA** | `@qa` `@test` `@tester` | Gemini 3 Flash | Testing, bug hunting, edge cases, test plans |
-| **Business Analyst** | `@ba` `@analyst` `@specs` | GPT 5.2 | Requirements, user stories, specifications |
-| **Reviewer** | `@reviewer` `@review` `@cr` | Claude Sonnet 4.5 | Code review, PR feedback, quality assessment |
+| **Senior Dev** | `@senior` `@architect` `@lead` | Claude Opus 4.8 | Architecture, system design, tech decisions, project scaffolding |
+| **Coder** | `@dev` `@coder` `@code` | Claude Sonnet 4.6 | Primary implementation, feature development, bug fixes |
+| **Coder 2** | `@dev2` `@coder2` `@gemini` | Gemini 3.1 Pro | Secondary coder, large-context tasks, multi-file work |
+| **QA** | `@qa` `@test` `@tester` | Gemini 3.5 Flash | Testing, bug hunting, edge cases, test plans |
+| **Business Analyst** | `@ba` `@analyst` `@specs` | GPT 5.5 | Requirements, user stories, specifications |
+| **Reviewer** | `@reviewer` `@review` `@cr` | Claude Sonnet 4.6 | Code review, PR feedback, quality assessment |
 
 ### Why Different Models?
 
@@ -628,7 +630,7 @@ curl http://localhost:8000/api/workflows
 
 ## Tool System — What Agents Can Do
 
-Agents don't just generate text — they can **use tools** to perform real actions. The tool system supports all three providers (Anthropic, OpenAI, Google) with native function calling.
+Agents don't just generate text — they can **use tools** to perform real actions. The tool system supports Anthropic, OpenAI, Google, Kimi, and OpenRouter-compatible function calling.
 
 ### Filesystem Tools (All Agents)
 
@@ -664,6 +666,23 @@ When GitHub MCP is enabled, each role gets a curated subset of GitHub tools:
 |------|-------------|
 | `create_test_plan_excel` | Generate a formatted `.xlsx` test plan with test cases, priorities, status |
 | `run_tests` | Execute `pytest` and return results |
+
+### Enterprise Data, Governance, and Cost Tools
+
+All roles receive durable local data-foundation tools backed by `workspace/.clai_data`:
+
+| Tool | Description |
+|------|-------------|
+| `data_source_register` / `data_source_search` | Maintain a metadata catalog for databases, APIs, documents, enterprise tools, and authoritative systems |
+| `semantic_document_index` / `semantic_search` | Index and retrieve grounding snippets before answering or coding |
+| `knowledge_fact_upsert` / `knowledge_graph_query` | Store and query business entities, relationships, and evidence |
+| `agent_memory_write` / `agent_memory_search` | Persist cross-session project facts, user preferences, decisions, and reusable context |
+| `workflow_checkpoint_write` / `workflow_checkpoint_list` | Recover long-running multi-step workflows and hand off state between agents |
+| `governance_check` / `audit_log_tail` | Enforce role-aware sensitivity checks and inspect audit events |
+| `cost_estimate` / `model_route_recommend` | Estimate spend and choose cheaper model routes before expensive work |
+| `prompt_cache_lookup` / `prompt_cache_store` | Reuse stable answers and summaries to avoid repeated LLM calls |
+
+The default implementation is dependency-free and lexical. It is designed as a local adapter layer that can later be backed by Neo4j, pgvector, OpenSearch, Milvus, Weaviate, Pinecone, or MCP-compatible enterprise platforms.
 
 ### Inspecting Tools
 
@@ -740,12 +759,17 @@ GITHUB_MCP_COMMAND=npx                                    # Command to start MCP
 GITHUB_MCP_ARGS=-y @modelcontextprotocol/server-github    # Arguments for MCP server
 
 # ── Model Overrides (optional) ───────────────────
-SENIOR_DEV_MODEL=claude-opus-4-5-20251101
-CODER_MODEL=claude-sonnet-4-5-20250929
-CODER_MODEL_2=gemini-3-pro-preview
-QA_MODEL=gemini-3-flash-preview
-BA_MODEL=gpt-5.2-2025-12-11
-REVIEWER_MODEL=claude-sonnet-4-5-20250929
+SENIOR_DEV_MODEL=claude-opus-4-8
+CODER_MODEL=claude-sonnet-4-6
+CODER_MODEL_2=gemini-3.1-pro-preview
+QA_MODEL=gemini-3.5-flash
+BA_MODEL=gpt-5.5
+REVIEWER_MODEL=claude-sonnet-4-6
+
+# OpenRouter (optional)
+OPENROUTER_API_KEY=sk-or-...
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+OPENROUTER_APP_NAME=CLAI
 
 # ── General Settings ─────────────────────────────
 DEFAULT_MAX_TOKENS=8192
@@ -754,32 +778,36 @@ VERBOSE=true
 LOG_LEVEL=DEBUG
 MCP_ENABLED=true
 MCP_WORKSPACE_ROOT=./workspace
+ENTERPRISE_DATA_ENABLED=true
+ENTERPRISE_DATA_DIR=.clai_data
 
 # ── Per-Role Overrides (JSON) ────────────────────
-# ROLE_MODEL_OVERRIDES={"senior_dev": "claude-opus-4-5-20251101"}
-# ROLE_PROVIDER_OVERRIDES={"qa": "openai"}
+# ROLE_MODEL_OVERRIDES={"coder": "~anthropic/claude-sonnet-latest"}
+# ROLE_PROVIDER_OVERRIDES={"coder": "openrouter"}
 ```
 
 ### Default Models
 
 | Role | Default Model | Provider |
 |------|---------------|----------|
-| Senior Dev | `claude-opus-4-5-20251101` | Anthropic |
-| Coder | `claude-sonnet-4-5-20250929` | Anthropic |
-| Coder 2 | `gemini-3-pro-preview` | Google |
-| QA | `gemini-3-flash-preview` | Google |
-| BA | `gpt-5.2-2025-12-11` | OpenAI |
-| Reviewer | `claude-sonnet-4-5-20250929` | Anthropic |
+| Senior Dev | `claude-opus-4-8` | Anthropic |
+| Coder | `claude-sonnet-4-6` | Anthropic |
+| Coder 2 | `gemini-3.1-pro-preview` | Google |
+| Coder 3 | `kimi-k2-thinking` | Kimi |
+| QA | `gemini-3.5-flash` | Google |
+| BA | `gpt-5.5` | OpenAI |
+| Reviewer | `claude-sonnet-4-6` | Anthropic |
 
 ### Role-Provider Overrides
 
 You can change which AI provider handles a role:
 
 ```ini
-ROLE_PROVIDER_OVERRIDES={"qa": "openai", "ba": "anthropic"}
+ROLE_PROVIDER_OVERRIDES={"qa": "openai", "coder": "openrouter"}
+ROLE_MODEL_OVERRIDES={"coder": "~anthropic/claude-sonnet-latest"}
 ```
 
-Valid providers: `anthropic`, `openai`, `google`
+Valid providers: `anthropic`, `openai`, `google`, `kimi`, `openrouter`
 
 ---
 
@@ -886,7 +914,7 @@ ROLE_PROVIDERS[Role.DEVOPS] = Provider.OPENAI
 3. **Add model** — `config/settings.py`:
 
 ```python
-devops_model: str = "gpt-5.2-2025-12-11"
+devops_model: str = "gpt-5.5"
 ```
 
 4. **Add mention alias** — `shell/constants.py`:

@@ -41,6 +41,8 @@ You also have shared team scratchpad tools for inter-agent coordination:
 
 Use the scratchpad to record quality gates, blockers, and test coverage decisions.
 
+You also have enterprise data foundation tools. Use `semantic_search`, `knowledge_graph_query`, and `data_source_search` to validate tests against authoritative requirements/data; use `agent_memory_write/search` and `workflow_checkpoint_write/list` for cross-session continuity; use `governance_check`, `audit_log_tail`, `cost_estimate`, `model_route_recommend`, and `prompt_cache_lookup/store` for auditable validation and lower LLM spend.
+
 ## Pipeline Workflow
 When working as part of the project pipeline (`kickoff` command), you handle the **Quality Phase**:
 1. Read the implemented code from the workspace.

@@ -355,8 +355,14 @@ class CLAIShell:
             table = Table(title="🔑 API Keys", box=box.ROUNDED)
             table.add_column("Provider", style="cyan")
             table.add_column("Status")
-            for provider, key in [("Anthropic", settings.anthropic_api_key), ("OpenAI", settings.openai_api_key), ("Google", settings.google_api_key)]:
-                status = "[green]✓[/green]" if key.get_secret_value() else "[red]✗[/red]"
+            for provider, key in [
+                ("Anthropic", settings.anthropic_api_key),
+                ("OpenAI", settings.openai_api_key),
+                ("Google", settings.google_api_key),
+                ("Kimi", settings.kimi_api_key),
+                ("OpenRouter", settings.openrouter_api_key),
+            ]:
+                status = "[green]✓[/green]" if key and key.get_secret_value() else "[red]✗[/red]"
                 table.add_row(provider, status)
             console.print()
             console.print(table)

@@ -43,12 +43,12 @@ python shell.py
 
 | Role | @Mention | Model | Specialty |
 |------|----------|-------|-----------|
-| **Senior Dev** | `@senior` | Claude Opus 4.5 | Architecture, system design, tech leadership |
-| **Coder** | `@dev` | Claude Sonnet 4.5 | Primary implementation, features, bug fixes |
-| **Coder 2** | `@dev2` | Gemini 3 Pro | Large-context secondary coder |
-| **QA** | `@qa` | Gemini 3 Flash | Testing, bug hunting, Excel test plans |
-| **BA** | `@ba` | GPT 5.2 | Requirements, user stories, GitHub issues |
-| **Reviewer** | `@reviewer` | Claude Sonnet 4.5 | Code review, PR feedback |
+| **Senior Dev** | `@senior` | Claude Opus 4.8 | Architecture, system design, tech leadership |
+| **Coder** | `@dev` | Claude Sonnet 4.6 | Primary implementation, features, bug fixes |
+| **Coder 2** | `@dev2` | Gemini 3.1 Pro | Large-context secondary coder |
+| **QA** | `@qa` | Gemini 3.5 Flash | Testing, bug hunting, Excel test plans |
+| **BA** | `@ba` | GPT 5.5 | Requirements, user stories, GitHub issues |
+| **Reviewer** | `@reviewer` | Claude Sonnet 4.6 | Code review, PR feedback |
 
 ---
 
@@ -105,6 +105,8 @@ Agents don't just generate text — they **use real tools**:
 | Category | Tools | Who Gets Them |
 |----------|-------|---------------|
 | **Filesystem** | `read_file`, `write_file`, `get_tree`, `grep`, ... | All agents |
+| **Enterprise Data** | `data_source_search`, `semantic_search`, `knowledge_graph_query`, `agent_memory_search`, ... | All agents |
+| **Governance & Cost** | `governance_check`, `audit_log_tail`, `cost_estimate`, `model_route_recommend`, `prompt_cache_lookup` | All agents |
 | **GitHub** | `create_repository`, `create_branch`, `push_files`, `create_pull_request`, ... | Role-scoped |
 | **QA** | `create_test_plan_excel`, `run_tests` | QA |
 
@@ -115,6 +117,18 @@ clai> tools              # See all tools
 clai> tools senior_dev   # See Senior Dev's tools
 clai> github             # Check GitHub connection
 ```
+
+### Enterprise Data Foundation
+
+CLAI includes a local, durable enterprise data layer under `workspace/.clai_data`:
+
+- Metadata catalog for databases, APIs, documents, tools, and enterprise systems
+- Knowledge graph facts for business entities and relationships
+- Lightweight semantic retrieval for grounding agents before they answer
+- Cross-session agent memory and workflow checkpoints
+- Governance checks, audit log, prompt cache, and model cost recommendations
+
+This is dependency-free for local use. The tool interfaces are shaped so the backing store can later move to Neo4j, pgvector, OpenSearch, Milvus, Weaviate, Pinecone, or MCP-backed enterprise tools.
 
 ---
 
@@ -153,13 +167,15 @@ All file paths are relative to `workspace/` (sandboxed).
 
 ## Configuration
 
-### Required
+### Provider Keys
 
 ```ini
-# .env
+# .env - add only the providers you route roles to
 ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-...
 GOOGLE_API_KEY=AI...
+KIMI_API_KEY=sk-...
+OPENROUTER_API_KEY=sk-or-...
 ```
 
 ### Optional
@@ -170,14 +186,23 @@ GITHUB_TOKEN=ghp_...
 GITHUB_MCP_ENABLED=true
 
 # Model overrides
-SENIOR_DEV_MODEL=claude-opus-4-5-20251101
-CODER_MODEL=claude-sonnet-4-5-20250929
+SENIOR_DEV_MODEL=claude-opus-4-8
+CODER_MODEL=claude-sonnet-4-6
+
+# Enterprise data foundation
+ENTERPRISE_DATA_ENABLED=true
+ENTERPRISE_DATA_DIR=.clai_data
+
+# OpenRouter metadata
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+OPENROUTER_APP_NAME=CLAI
 
 # Per-role provider override (JSON)
-ROLE_PROVIDER_OVERRIDES={"qa": "openai"}
+ROLE_PROVIDER_OVERRIDES={"coder": "openrouter"}
+ROLE_MODEL_OVERRIDES={"coder": "~anthropic/claude-sonnet-latest"}
 ```
 
-Get keys from: [Anthropic](https://console.anthropic.com) · [OpenAI](https://platform.openai.com/api-keys) · [Google](https://aistudio.google.com/apikey) · [GitHub](https://github.com/settings/tokens)
+Get keys from: [Anthropic](https://console.anthropic.com) · [OpenAI](https://platform.openai.com/api-keys) · [Google](https://aistudio.google.com/apikey) · [OpenRouter](https://openrouter.ai/keys) · [GitHub](https://github.com/settings/tokens)
 
 ---
 
@@ -231,6 +256,7 @@ CLAI/
 │   ├── mcp_bridge.py         # MCP → ToolRegistry bridge (role-scoped)
 │   ├── excel_tools.py        # Excel test plan generation
 │   ├── test_runner.py        # pytest execution
+│   ├── enterprise_data.py    # Catalog, graph, retrieval, memory, governance, cost tools
 │   ├── workflows.py          # WorkflowStep/Result dataclasses
 │   └── filesystem.py         # Low-level file ops
 ├── config/

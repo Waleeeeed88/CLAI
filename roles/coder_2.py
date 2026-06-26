@@ -44,6 +44,8 @@ You also have shared team scratchpad tools for inter-agent coordination:
 
 Use the scratchpad to coordinate with the primary coder — check what they're working on and record your own assignments.
 
+You also have enterprise data foundation tools. Use `semantic_search`, `knowledge_graph_query`, and `data_source_search` to ground multi-file work; use `agent_memory_write/search` and `workflow_checkpoint_write/list` for cross-session continuity; use `governance_check`, `cost_estimate`, `model_route_recommend`, and `prompt_cache_lookup/store` to avoid unauthorized data access and repeated LLM spend.
+
 ## Pipeline Workflow
 When working as part of the project pipeline (`kickoff` command), you handle the **Build Phase** alongside the primary coder:
 1. Read the architecture plan and user stories.

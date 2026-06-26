@@ -15,12 +15,18 @@ class Settings(BaseSettings):
         extra="ignore"
     )
 
-    anthropic_api_key: SecretStr = Field(...)
-    openai_api_key: SecretStr = Field(...)
-    google_api_key: SecretStr = Field(...)
+    anthropic_api_key: Optional[SecretStr] = Field(default=None)
+    openai_api_key: Optional[SecretStr] = Field(default=None)
+    google_api_key: Optional[SecretStr] = Field(default=None)
 
     # Kimi (Moonshot AI) — optional, only needed if you route a role to Kimi
     kimi_api_key: Optional[SecretStr] = Field(default=None)
+
+    # OpenRouter (OpenAI-compatible) - optional, only needed for openrouter routes.
+    openrouter_api_key: Optional[SecretStr] = Field(default=None)
+    openrouter_base_url: str = Field(default="https://openrouter.ai/api/v1")
+    openrouter_site_url: Optional[str] = Field(default=None)
+    openrouter_app_name: str = Field(default="CLAI")
 
     # GitHub MCP integration
     github_token: Optional[SecretStr] = Field(default=None)
@@ -28,18 +34,18 @@ class Settings(BaseSettings):
     github_mcp_command: str = Field(default="npx")
     github_mcp_args: str = Field(default="-y @modelcontextprotocol/server-github")
 
-    senior_dev_model: str = "claude-opus-4-5-20251101"
-    coder_model: str = "claude-sonnet-4-5-20250929"
+    senior_dev_model: str = "claude-opus-4-8"
+    coder_model: str = "claude-sonnet-4-6"
     coder_model_2: str = "gemini-3.1-pro-preview"
     coder_model_3: str = "kimi-k2-thinking"
-    qa_model: str = "gemini-3-flash-preview"
-    ba_model: str = "gpt-5.2-2025-12-11"
-    reviewer_model: str = "claude-sonnet-4-5-20250929"
+    qa_model: str = "gemini-3.5-flash"
+    ba_model: str = "gpt-5.5"
+    reviewer_model: str = "claude-sonnet-4-6"
 
     # Optional JSON overrides for arbitrary role routing/model choices.
     # Example:
-    # ROLE_MODEL_OVERRIDES='{"qa":"gpt-5.2-2025-12-11","coder":"gpt-5.2-2025-12-11"}'
-    # ROLE_PROVIDER_OVERRIDES='{"qa":"openai","ba":"google"}'
+    # ROLE_MODEL_OVERRIDES='{"qa":"gpt-5.4-mini","coder":"~anthropic/claude-sonnet-latest"}'
+    # ROLE_PROVIDER_OVERRIDES='{"qa":"openai","coder":"openrouter"}'
     role_model_overrides: Dict[str, str] = Field(default_factory=dict)
     role_provider_overrides: Dict[str, str] = Field(default_factory=dict)
     
@@ -58,6 +64,8 @@ class Settings(BaseSettings):
     
     mcp_enabled: bool = True
     mcp_workspace_root: str = "./workspace"
+    enterprise_data_enabled: bool = True
+    enterprise_data_dir: str = ".clai_data"
 
     @field_validator("role_model_overrides", "role_provider_overrides", mode="before")
     @classmethod

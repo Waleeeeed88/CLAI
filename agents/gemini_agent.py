@@ -18,7 +18,10 @@ class GeminiAgent(BaseAgent):
 
     def _initialize_client(self) -> None:
         settings = get_settings()
-        genai.configure(api_key=settings.google_api_key.get_secret_value())
+        key = settings.google_api_key
+        if not key:
+            raise RuntimeError("GOOGLE_API_KEY is not set. Add it to your .env file.")
+        genai.configure(api_key=key.get_secret_value())
 
         model_kwargs: Dict[str, Any] = {
             "model_name": self.model,

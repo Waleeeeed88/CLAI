@@ -33,31 +33,35 @@ class FallbackChain:
 DEFAULT_FALLBACKS: Dict[Role, List[Tuple[Provider, str]]] = {
     Role.SENIOR_DEV: [
         (Provider.GOOGLE, "gemini-3.1-pro-preview"),
-        (Provider.OPENAI, "gpt-5.2-2025-12-11"),
+        (Provider.OPENAI, "gpt-5.5"),
+        (Provider.OPENROUTER, "~anthropic/claude-opus-latest"),
     ],
     Role.CODER: [
         (Provider.GOOGLE, "gemini-3.1-pro-preview"),
-        (Provider.OPENAI, "gpt-5.2-2025-12-11"),
+        (Provider.OPENAI, "gpt-5.5"),
+        (Provider.OPENROUTER, "~anthropic/claude-sonnet-latest"),
     ],
     Role.CODER_2: [
-        (Provider.ANTHROPIC, "claude-sonnet-4-5-20250929"),
-        (Provider.OPENAI, "gpt-5.2-2025-12-11"),
+        (Provider.ANTHROPIC, "claude-sonnet-4-6"),
+        (Provider.OPENAI, "gpt-5.5"),
     ],
     Role.CODER_3: [
         (Provider.GOOGLE, "gemini-3.1-pro-preview"),
-        (Provider.ANTHROPIC, "claude-sonnet-4-5-20250929"),
+        (Provider.ANTHROPIC, "claude-sonnet-4-6"),
+        (Provider.OPENROUTER, "~qwen/qwen3-coder-latest"),
     ],
     Role.QA: [
-        (Provider.OPENAI, "gpt-4.1-2025-04-14"),
-        (Provider.ANTHROPIC, "claude-sonnet-4-5-20250929"),
+        (Provider.OPENAI, "gpt-5.4-mini"),
+        (Provider.ANTHROPIC, "claude-sonnet-4-6"),
     ],
     Role.BA: [
-        (Provider.ANTHROPIC, "claude-sonnet-4-5-20250929"),
+        (Provider.ANTHROPIC, "claude-sonnet-4-6"),
         (Provider.GOOGLE, "gemini-3.1-pro-preview"),
     ],
     Role.REVIEWER: [
         (Provider.GOOGLE, "gemini-3.1-pro-preview"),
-        (Provider.OPENAI, "gpt-5.2-2025-12-11"),
+        (Provider.OPENAI, "gpt-5.5"),
+        (Provider.OPENROUTER, "~anthropic/claude-sonnet-latest"),
     ],
 }
 

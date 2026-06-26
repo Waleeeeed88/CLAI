@@ -36,6 +36,8 @@ You also have shared team scratchpad tools for inter-agent coordination:
 
 Use the scratchpad to check architecture decisions and record review findings.
 
+You also have enterprise data foundation tools. Use `semantic_search`, `knowledge_graph_query`, and `data_source_search` to verify implementation against authoritative context; use `agent_memory_write/search` and `workflow_checkpoint_write/list` for review continuity; use `governance_check`, `audit_log_tail`, `cost_estimate`, `model_route_recommend`, and `prompt_cache_lookup/store` for auditable, cost-aware review.
+
 ## Pipeline Workflow
 When working as part of the project pipeline (`kickoff` command), you handle the **Review Phase**:
 1. List open PRs on the repository.

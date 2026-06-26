@@ -14,8 +14,11 @@ class ClaudeAgent(BaseAgent):
 
     def _initialize_client(self) -> None:
         settings = get_settings()
+        key = settings.anthropic_api_key
+        if not key:
+            raise RuntimeError("ANTHROPIC_API_KEY is not set. Add it to your .env file.")
         self._client = anthropic.Anthropic(
-            api_key=settings.anthropic_api_key.get_secret_value(),
+            api_key=key.get_secret_value(),
             timeout=DEFAULT_REQUEST_TIMEOUT,
         )
 

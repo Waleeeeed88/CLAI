@@ -36,7 +36,7 @@ def cli(ctx, verbose):
 
 
 @cli.command()
-@click.argument("role", type=click.Choice(["senior_dev", "coder", "coder_2", "qa", "ba", "reviewer"]))
+@click.argument("role", type=click.Choice(["senior_dev", "coder", "coder_2", "coder_3", "qa", "ba", "reviewer"]))
 @click.argument("prompt", nargs=-1, required=True)
 @click.option("--file", "-f", type=click.Path(exists=True))
 @click.pass_context
@@ -127,6 +127,7 @@ def team():
         ("Senior Dev", Role.SENIOR_DEV),
         ("Coder", Role.CODER),
         ("Coder 2", Role.CODER_2),
+        ("Coder 3", Role.CODER_3),
         ("Reviewer", Role.REVIEWER),
     ]:
         provider, model = AgentFactory.get_role_runtime_config(role)
@@ -233,8 +234,10 @@ def config():
             ("Anthropic", settings.anthropic_api_key),
             ("OpenAI", settings.openai_api_key),
             ("Google", settings.google_api_key),
+            ("Kimi", settings.kimi_api_key),
+            ("OpenRouter", settings.openrouter_api_key),
         ]:
-            status = "[green]OK[/green]" if key.get_secret_value() else "[red]Missing[/red]"
+            status = "[green]OK[/green]" if key and key.get_secret_value() else "[red]Missing[/red]"
             table.add_row(provider, status)
         console.print()
         console.print(table)
@@ -250,6 +253,7 @@ def config():
             ("Senior Dev", Role.SENIOR_DEV),
             ("Coder", Role.CODER),
             ("Coder 2", Role.CODER_2),
+            ("Coder 3", Role.CODER_3),
             ("Reviewer", Role.REVIEWER),
         ]:
             provider, model = AgentFactory.get_role_runtime_config(role)
@@ -271,7 +275,7 @@ def config():
 
 
 @cli.command()
-@click.argument("role", type=click.Choice(["senior_dev", "coder", "coder_2", "qa", "ba", "reviewer"]))
+@click.argument("role", type=click.Choice(["senior_dev", "coder", "coder_2", "coder_3", "qa", "ba", "reviewer"]))
 @click.pass_context
 def chat(ctx, role):
     """Start interactive chat with a team member."""

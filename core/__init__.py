@@ -8,6 +8,7 @@ from .scratchpad import Scratchpad, ScratchpadEntry
 from .parallel import parallel_ask, ParallelTask, ParallelResult
 from .metrics import RunMetrics, RunSummary, COST_TABLE
 from .routing import ask_with_fallback, FallbackChain, FallbackEvent, DEFAULT_FALLBACKS
+from .enterprise_data import EnterpriseDataFoundation, build_enterprise_data_registry, get_enterprise_data_foundation
 
 __all__ = [
     "Orchestrator",
@@ -37,4 +38,7 @@ __all__ = [
     "FallbackChain",
     "FallbackEvent",
     "DEFAULT_FALLBACKS",
+    "EnterpriseDataFoundation",
+    "build_enterprise_data_registry",
+    "get_enterprise_data_foundation",
 ]

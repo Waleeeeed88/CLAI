@@ -7,6 +7,7 @@ from .claude_agent import ClaudeAgent
 from .gpt_agent import GPTAgent
 from .gemini_agent import GeminiAgent
 from .kimi_agent import KimiAgent
+from .openrouter_agent import OpenRouterAgent
 from config import get_settings
 
 
@@ -15,6 +16,7 @@ class Provider(Enum):
     OPENAI = "openai"
     GOOGLE = "google"
     KIMI = "kimi"
+    OPENROUTER = "openrouter"
 
 
 class Role(Enum):
@@ -32,6 +34,7 @@ PROVIDER_AGENTS: Dict[Provider, Type[BaseAgent]] = {
     Provider.OPENAI: GPTAgent,
     Provider.GOOGLE: GeminiAgent,
     Provider.KIMI: KimiAgent,
+    Provider.OPENROUTER: OpenRouterAgent,
 }
 
 ROLE_PROVIDERS: Dict[Role, Provider] = {

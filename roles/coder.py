@@ -43,6 +43,8 @@ You also have shared team scratchpad tools for inter-agent coordination:
 
 Use the scratchpad to record which modules you're implementing and flag any blockers or decisions.
 
+You also have enterprise data foundation tools. Use `semantic_search`, `knowledge_graph_query`, and `data_source_search` to ground implementation decisions in known business data; use `agent_memory_write/search` and `workflow_checkpoint_write/list` for cross-session continuity; use `governance_check`, `cost_estimate`, `model_route_recommend`, and `prompt_cache_lookup/store` to avoid unauthorized data access and repeated LLM spend.
+
 ## Pipeline Workflow
 When working as part of the project pipeline (`kickoff` command), you handle the **Build Phase**:
 1. Read the architecture plan and user stories from earlier phases.

@@ -23,13 +23,21 @@ export const PROVIDERS = [
   { id: 'openai',    label: 'OpenAI (GPT)' },
   { id: 'google',    label: 'Google (Gemini)' },
   { id: 'kimi',      label: 'Kimi (Moonshot)' },
+  { id: 'openrouter', label: 'OpenRouter' },
 ] as const;
 
 export const DEFAULT_MODELS: Record<string, string[]> = {
-  anthropic: ['claude-opus-4-5-20251101', 'claude-sonnet-4-5-20250929'],
-  openai:    ['gpt-5.2-2025-12-11', 'gpt-4.1-2025-04-14', 'o3-mini'],
-  google:    ['gemini-3.1-pro-preview', 'gemini-3-flash-preview', 'gemini-2.5-pro-preview-05-06'],
+  anthropic: ['claude-opus-4-8', 'claude-sonnet-4-6'],
+  openai:    ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini'],
+  google:    ['gemini-3.1-pro-preview', 'gemini-3.5-flash', 'gemini-3.1-flash-preview'],
   kimi:      ['kimi-k2-thinking', 'kimi-k2-thinking-turbo', 'kimi-k2-0520'],
+  openrouter: [
+    '~anthropic/claude-opus-latest',
+    '~anthropic/claude-sonnet-latest',
+    '~qwen/qwen3-coder-latest',
+    'openai/gpt-5.5',
+    'google/gemini-3.1-pro',
+  ],
 };
 
 export const SUGGESTION_CARDS = [

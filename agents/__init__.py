@@ -4,6 +4,7 @@ from .claude_agent import ClaudeAgent
 from .gpt_agent import GPTAgent
 from .gemini_agent import GeminiAgent
 from .kimi_agent import KimiAgent
+from .openrouter_agent import OpenRouterAgent
 from .factory import AgentFactory, Provider, Role
 
 __all__ = [
@@ -17,6 +18,7 @@ __all__ = [
     "GPTAgent",
     "GeminiAgent",
     "KimiAgent",
+    "OpenRouterAgent",
     "AgentFactory",
     "Provider",
     "Role",

@@ -58,6 +58,7 @@ CLAI/
 │   ├── mcp_bridge.py         # build_github_registry_for_role() — role-scoped GitHub tools
 │   ├── excel_tools.py        # create_test_plan_excel tool (openpyxl)
 │   ├── test_runner.py        # run_tests tool (subprocess pytest)
+│   ├── enterprise_data.py    # Catalog, graph, retrieval, memory, governance, cost tools
 │   ├── workflows.py          # WorkflowStep, WorkflowResult, WorkflowStatus
 │   └── filesystem.py         # FileSystemTools: sandboxed read/write/list/grep
 │
@@ -187,20 +188,33 @@ The config API lets users change which model handles which role from the web UI:
 
 Overrides persist across server restarts (stored in JSON file). The next pipeline run automatically uses the updated assignments.
 
+### Enterprise Data Foundation
+
+Every agent receives enterprise data tools when `ENTERPRISE_DATA_ENABLED=true`:
+
+- Metadata catalog: `data_source_register`, `data_source_search`
+- Grounding/RAG: `semantic_document_index`, `semantic_search`
+- Knowledge graph: `knowledge_fact_upsert`, `knowledge_graph_query`
+- Durable memory/recovery: `agent_memory_write`, `agent_memory_search`, `workflow_checkpoint_write`, `workflow_checkpoint_list`
+- Governance/cost: `governance_check`, `audit_log_tail`, `cost_estimate`, `model_route_recommend`, `prompt_cache_lookup`, `prompt_cache_store`
+
+The default store is JSON/JSONL under `workspace/.clai_data`. It is adapter-shaped so production deployments can replace storage with Neo4j, pgvector, OpenSearch, Milvus, Weaviate, Pinecone, or MCP-backed enterprise systems.
+
 ---
 
 ## Current AI Models (Defaults)
 
 | Role | Model ID | Provider |
 |------|----------|----------|
-| Senior Dev | `claude-opus-4-5-20251101` | Anthropic |
-| Coder | `claude-sonnet-4-5-20250929` | Anthropic |
+| Senior Dev | `claude-opus-4-8` | Anthropic |
+| Coder | `claude-sonnet-4-6` | Anthropic |
 | Coder 2 | `gemini-3.1-pro-preview` | Google |
-| QA | `gemini-3-flash-preview` | Google |
-| BA | `gpt-5.2-2025-12-11` | OpenAI |
-| Reviewer | `claude-sonnet-4-5-20250929` | Anthropic |
+| Coder 3 | `kimi-k2-thinking` | Kimi |
+| QA | `gemini-3.5-flash` | Google |
+| BA | `gpt-5.5` | OpenAI |
+| Reviewer | `claude-sonnet-4-6` | Anthropic |
 
-**Available providers**: Anthropic, OpenAI, Google, Kimi
+**Available providers**: Anthropic, OpenAI, Google, Kimi, OpenRouter
 
 Override models via:
 1. **Web UI** — Settings drawer → change provider/model per role → Save
@@ -304,9 +318,10 @@ Example: Adding any OpenAI-compatible provider (Kimi is included as a reference)
 
 | Error | Fix |
 |-------|-----|
-| "Config error: Field required" | Check `.env` has `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY` |
+| "ANTHROPIC_API_KEY is not set" | Add the provider key only if a role is routed to Anthropic |
 | "KIMI_API_KEY is not set" | Add `KIMI_API_KEY=...` to `.env` (only needed if you route a role to Kimi) |
-| "Invalid provider override" | Valid providers: `anthropic`, `openai`, `google`, `kimi` |
+| "OPENROUTER_API_KEY is not set" | Add `OPENROUTER_API_KEY=...` to `.env` (only needed if you route a role to OpenRouter) |
+| "Invalid provider override" | Valid providers: `anthropic`, `openai`, `google`, `kimi`, `openrouter` |
 | "Model not found" | Verify model names in Settings drawer or `config/settings.py` |
 | "Path escapes workspace sandbox" | Use relative paths within `workspace/` |
 | "GitHub MCP not connected" | Ensure Node.js installed + `GITHUB_MCP_ENABLED=true` |
