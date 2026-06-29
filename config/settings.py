@@ -9,6 +9,7 @@ from pydantic import Field, SecretStr, field_validator
 
 OVERRIDES_META_KEY = "__meta__"
 OVERRIDES_TOOLS_KEY = "__tools__"
+OVERRIDES_COST_SAVING_KEY = "__cost_saving__"
 
 
 def _coerce_bool(value) -> bool:
@@ -80,6 +81,13 @@ class Settings(BaseSettings):
     enterprise_data_dir: str = ".clai_data"
     scratchpad_enabled: bool = True
     qa_tools_enabled: bool = True
+
+    # Native token-saving mode inspired by Ponytail, Caveman, and LangGraph-style
+    # message trimming. Disabled by default to preserve existing behavior.
+    cost_saver_enabled: bool = False
+    cost_saver_max_output_tokens: int = 1600
+    cost_saver_history_messages: int = 8
+    cost_saver_history_char_limit: int = 2000
 
     @field_validator("role_model_overrides", "role_provider_overrides", mode="before")
     @classmethod
@@ -153,6 +161,18 @@ def get_settings() -> Settings:
             for key, value in cfg.items():
                 if hasattr(settings, key):
                     setattr(settings, key, _coerce_bool(value))
+            continue
+        if role_key == OVERRIDES_COST_SAVING_KEY and isinstance(cfg, dict):
+            for key, value in cfg.items():
+                if not hasattr(settings, key):
+                    continue
+                if key == "cost_saver_enabled":
+                    setattr(settings, key, _coerce_bool(value))
+                else:
+                    try:
+                        setattr(settings, key, int(value))
+                    except (TypeError, ValueError):
+                        continue
             continue
         if role_key.startswith("__"):
             continue

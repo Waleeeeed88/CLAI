@@ -3,10 +3,10 @@ import json
 
 from agents.factory import Provider, Role
 from config import clear_settings_cache
-from config.settings import OVERRIDES_TOOLS_KEY
+from config.settings import OVERRIDES_COST_SAVING_KEY, OVERRIDES_TOOLS_KEY
 from config.team_profiles import TEAM_PRESETS
 from core import Orchestrator
-from web.models.schemas import ModelConfigRequest, ToolConfig
+from web.models.schemas import CostSavingConfig, ModelConfigRequest, ToolConfig
 from web.routers import config as config_router
 
 
@@ -32,6 +32,12 @@ def test_team_preset_and_tool_config_persist(monkeypatch, tmp_path):
                     qa_tools=False,
                     github_mcp=False,
                 ),
+                cost_saving=CostSavingConfig(
+                    enabled=True,
+                    max_output_tokens=1200,
+                    history_messages=6,
+                    history_char_limit=1500,
+                ),
             )
         )
     )
@@ -39,9 +45,12 @@ def test_team_preset_and_tool_config_persist(monkeypatch, tmp_path):
     assert response.active_preset == "cheap"
     assert response.roles["qa"].provider == "google"
     assert response.tools.scratchpad is False
+    assert response.cost_saving.enabled is True
+    assert response.cost_saving.max_output_tokens == 1200
     stored = json.loads(overrides_path.read_text(encoding="utf-8"))
     assert stored["__meta__"]["team_preset"] == "cheap"
     assert stored[OVERRIDES_TOOLS_KEY]["enterprise_data_enabled"] is False
+    assert stored[OVERRIDES_COST_SAVING_KEY]["cost_saver_enabled"] is True
 
 
 def test_orchestrator_respects_tool_toggles(monkeypatch, tmp_path):

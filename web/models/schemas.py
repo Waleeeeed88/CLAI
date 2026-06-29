@@ -47,12 +47,20 @@ class ToolConfig(BaseModel):
     github_mcp: bool = False
 
 
+class CostSavingConfig(BaseModel):
+    enabled: bool = False
+    max_output_tokens: int = 1600
+    history_messages: int = 8
+    history_char_limit: int = 2000
+
+
 class ModelConfigResponse(BaseModel):
     roles: Dict[str, RoleConfig]
     providers: List[str]
     presets: List[TeamPreset] = Field(default_factory=list)
     active_preset: Optional[str] = None
     tools: ToolConfig = Field(default_factory=ToolConfig)
+    cost_saving: CostSavingConfig = Field(default_factory=CostSavingConfig)
     warnings: List[str] = Field(default_factory=list)
 
 
@@ -60,3 +68,4 @@ class ModelConfigRequest(BaseModel):
     overrides: Dict[str, RoleConfig] = Field(default_factory=dict)
     team_preset: Optional[str] = None
     tools: Optional[ToolConfig] = None
+    cost_saving: Optional[CostSavingConfig] = None

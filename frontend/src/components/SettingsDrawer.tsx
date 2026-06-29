@@ -6,6 +6,7 @@ import { X, Save, Loader2, Check } from "lucide-react";
 import { cn } from "../lib/cn";
 import { AGENTS, PROVIDERS, DEFAULT_MODELS, type AgentRole } from "../lib/constants";
 import {
+  type CostSavingConfig,
   fetchModelConfig,
   updateModelConfig,
   type RoleConfig,
@@ -26,6 +27,7 @@ export function SettingsDrawer({ open, onClose }: Props) {
   const [presets, setPresets] = useState<TeamPreset[]>([]);
   const [activePreset, setActivePreset] = useState<string | null>(null);
   const [tools, setTools] = useState<ToolConfig | null>(null);
+  const [costSaving, setCostSaving] = useState<CostSavingConfig | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -44,6 +46,7 @@ export function SettingsDrawer({ open, onClose }: Props) {
         setPresets(res.presets);
         setActivePreset(res.active_preset);
         setTools(res.tools);
+        setCostSaving(res.cost_saving);
         setWarnings(res.warnings);
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load config"))
@@ -83,13 +86,24 @@ export function SettingsDrawer({ open, onClose }: Props) {
     setSaved(false);
   };
 
+  const handleCostSavingChange = (patch: Partial<CostSavingConfig>) => {
+    setCostSaving((prev) => (prev ? { ...prev, ...patch } : prev));
+    setSaved(false);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setError(null);
     try {
-      const res = await updateModelConfig(activePreset ? {} : config, tools ?? undefined, activePreset);
+      const res = await updateModelConfig(
+        activePreset ? {} : config,
+        tools ?? undefined,
+        costSaving ?? undefined,
+        activePreset,
+      );
       setConfig(res.roles);
       setTools(res.tools);
+      setCostSaving(res.cost_saving);
       setWarnings(res.warnings);
       setActivePreset(res.active_preset);
       setSaved(true);
@@ -247,6 +261,37 @@ export function SettingsDrawer({ open, onClose }: Props) {
                         </div>
                       )}
 
+                      {costSaving && (
+                        <div>
+                          <h4 className="text-[10px] font-semibold uppercase tracking-[0.22em] text-clai-muted">
+                            Cost Saving
+                          </h4>
+                          <div className="mt-2 grid gap-2">
+                            <ToolToggle
+                              label="Token Saver"
+                              checked={costSaving.enabled}
+                              onChange={(value) => handleCostSavingChange({ enabled: value })}
+                            />
+                            <NumberSetting
+                              label="Max Output"
+                              value={costSaving.max_output_tokens}
+                              min={256}
+                              max={8192}
+                              step={128}
+                              onChange={(value) => handleCostSavingChange({ max_output_tokens: value })}
+                            />
+                            <NumberSetting
+                              label="History Messages"
+                              value={costSaving.history_messages}
+                              min={0}
+                              max={40}
+                              step={1}
+                              onChange={(value) => handleCostSavingChange({ history_messages: value })}
+                            />
+                          </div>
+                        </div>
+                      )}
+
                       {roles.map((role) => {
                         const agent = AGENTS[role];
                         const roleConfig = config[role];
@@ -356,6 +401,55 @@ function ToolToggle({
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
         className="h-4 w-4 accent-white"
+      />
+    </label>
+  );
+}
+
+function NumberSetting({
+  label,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (value: number) => void;
+}) {
+  const handleChange = (rawValue: string) => {
+    const parsed = Number(rawValue);
+    if (Number.isFinite(parsed)) {
+      onChange(Math.min(max, Math.max(min, parsed)));
+    }
+  };
+
+  return (
+    <label className="grid gap-2 rounded-2xl border border-white/8 bg-black/15 px-4 py-3">
+      <span className="flex items-center justify-between gap-3">
+        <span className="text-sm text-clai-text">{label}</span>
+        <input
+          type="number"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(event) => handleChange(event.target.value)}
+          className="w-24 rounded-xl border border-white/8 bg-white/[0.04] px-2.5 py-1.5 text-right font-mono text-xs text-clai-text focus:border-white/15 focus:outline-none"
+        />
+      </span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(event) => handleChange(event.target.value)}
+        className="w-full accent-white"
       />
     </label>
   );

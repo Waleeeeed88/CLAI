@@ -1,0 +1,29 @@
+name: Feature request
+description: Suggest an improvement for CLAI.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user problem should this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What should CLAI do?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Any other approaches you considered?
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Add screenshots, examples, or related links.

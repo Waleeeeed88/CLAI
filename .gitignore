@@ -47,6 +47,7 @@ ENV/
 workspace/
 clai_output/
 .clai_history
+.pi/
 
 # Node / frontend
 node_modules/

@@ -78,12 +78,20 @@ export interface ToolConfig {
   github_mcp: boolean;
 }
 
+export interface CostSavingConfig {
+  enabled: boolean;
+  max_output_tokens: number;
+  history_messages: number;
+  history_char_limit: number;
+}
+
 export interface ModelConfigResponse {
   roles: Record<string, RoleConfig>;
   providers: string[];
   presets: TeamPreset[];
   active_preset: string | null;
   tools: ToolConfig;
+  cost_saving: CostSavingConfig;
   warnings: string[];
 }
 
@@ -96,12 +104,13 @@ export async function fetchModelConfig(): Promise<ModelConfigResponse> {
 export async function updateModelConfig(
   overrides: Record<string, RoleConfig>,
   tools?: ToolConfig,
+  costSaving?: CostSavingConfig,
   teamPreset?: string | null,
 ): Promise<ModelConfigResponse> {
   const res = await fetch(`${BASE}/config/models`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ overrides, tools, team_preset: teamPreset }),
+    body: JSON.stringify({ overrides, tools, cost_saving: costSaving, team_preset: teamPreset }),
   });
   if (!res.ok) await raiseApiError(res);
   return res.json();

@@ -270,6 +270,7 @@ def config():
             ("Enterprise Data", settings.enterprise_data_enabled),
             ("QA Tools", settings.qa_tools_enabled),
             ("GitHub MCP", settings.github_mcp_enabled),
+            ("Cost Saver", settings.cost_saver_enabled),
         ]:
             table.add_row(name, "[green]enabled[/green]" if enabled else "[yellow]disabled[/yellow]")
         console.print(table)

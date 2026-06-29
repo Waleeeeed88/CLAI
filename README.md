@@ -13,6 +13,13 @@
 </p>
 
 <p align="center">
+  <a href="#quick-start">Quick Start</a> |
+  <a href="#features">Features</a> |
+  <a href="docs/USAGE_GUIDE.md">Docs</a> |
+  <a href="CONTRIBUTING.md">Contributing</a>
+</p>
+
+<p align="center">
   <img alt="CLAI terminal demo" src="docs/assets/clai-terminal.gif" width="900">
 </p>
 
@@ -20,14 +27,15 @@ CLAI turns a product request into a coordinated engineering workflow. A senior
 architect, business analyst, coders, QA, and reviewer can plan, implement, test,
 review, and document work while using real tools against your local workspace.
 
-## Highlights
+## Features
 
 - Multi-agent delivery workflows for planning, implementation, QA, review, and handoff.
 - Configurable model teams: `cheap`, `optimal`, and `expensive` presets.
 - Provider routing across Anthropic, OpenAI, Google Gemini, Kimi, and OpenRouter.
-- Tool controls for filesystem access, scratchpad memory, enterprise data, QA tools, and GitHub MCP.
+- Structured tool calls for filesystem access, scratchpad memory, QA tools, and GitHub MCP.
+- Native cost-saving mode with Ponytail-style minimal implementation rules, Caveman-style terse replies, output caps, and trimmed chat history.
 - Local enterprise data layer for catalog search, semantic retrieval, knowledge graph facts, audit logs, memory, prompt cache, and cost estimates.
-- Terminal shell, CLI commands, and a Next.js web UI over a FastAPI backend.
+- Terminal shell, Click CLI, FastAPI backend, and Next.js browser UI.
 
 ## Workflow
 
@@ -70,6 +78,8 @@ npm install
 npm run dev
 ```
 
+Then open `http://localhost:3000`.
+
 ## Agent Team
 
 | Role | Mention | Default responsibility |
@@ -92,8 +102,7 @@ CLAI ships with three complete routing presets:
 | Optimal Team | Balanced day-to-day product work |
 | Expensive Team | Architecture, high-risk changes, and final review |
 
-You can also override every role manually from `.env`, `config/overrides.json`,
-or the web Settings drawer.
+You can override each role manually from `.env`, `config/overrides.json`, or the web Settings drawer.
 
 ```ini
 ANTHROPIC_API_KEY=sk-ant-...
@@ -108,7 +117,7 @@ ROLE_MODEL_OVERRIDES={"coder": "~anthropic/claude-sonnet-latest"}
 
 ## Tooling
 
-Agents use structured tool calls, not prompt-only simulations.
+Agents use provider-native function calling instead of prompt-only simulations.
 
 | Tool set | What it enables |
 | --- | --- |
@@ -118,8 +127,16 @@ Agents use structured tool calls, not prompt-only simulations.
 | QA Tools | Excel test plans and test runner access |
 | GitHub MCP | Repository, branch, issue, pull request, and review workflows |
 
-Tool access can be toggled from configuration so a cheap drafting run does not
-need the same capabilities as a full delivery run.
+Tool access can be toggled from configuration so a cheap drafting run does not need the same capabilities as a full delivery run.
+
+## Cost Saving
+
+The Settings drawer includes a Cost Saving section. Enabling Token Saver:
+
+- Adds Ponytail-style rules that prefer existing code, stdlib, native platform features, installed dependencies, and the smallest correct implementation.
+- Adds Caveman-style brevity that removes filler while preserving exact code, commands, paths, API names, errors, and safety guidance.
+- Caps output tokens per role.
+- Keeps only the newest chat history messages before each model call.
 
 ## Common Commands
 
@@ -149,19 +166,21 @@ CLAI/
   roles/       Role prompts and runtime defaults
   shell/       Interactive terminal shell
   web/         FastAPI routes and schemas
-  workspace/   Sandboxed working directory
+  workspace/   Local agent workspace, ignored by git
 ```
 
 ## Documentation
 
 - [Usage Guide](docs/USAGE_GUIDE.md) - commands, workflows, tools, config, and extension points.
+- [Contributing](CONTRIBUTING.md) - local setup, verification, and pull request expectations.
+- [Security](SECURITY.md) - supported reporting path for vulnerabilities.
+- [Changelog](CHANGELOG.md) - notable changes by release.
 - [Onboarding](onboarding.md) - developer walkthrough for the codebase.
 
 ## Development
 
 ```powershell
-.\venv\Scripts\python.exe -m pytest
-.\venv\Scripts\python.exe -m compileall config core web tests cli.py shell.py
+python -m pytest
 
 cd frontend
 npm run build
@@ -169,9 +188,7 @@ npm run build
 
 ## Contributing
 
-Issues and pull requests are welcome. Keep changes focused, include a small
-test or verification note when behavior changes, and prefer existing patterns
-over new abstractions.
+Issues and pull requests are welcome. Keep changes focused, include verification, and prefer existing patterns over new abstractions.
 
 ## License
 

@@ -95,6 +95,14 @@ class BaseAgent(ABC):
         temperature: float = 0.7,
         tool_registry: Optional[Any] = None,
     ):
+        from config import get_settings
+        from .token_saver import apply_cost_saver_prompt, apply_output_cap
+
+        settings = get_settings()
+        if settings.cost_saver_enabled:
+            system_prompt = apply_cost_saver_prompt(system_prompt)
+            max_tokens = apply_output_cap(max_tokens, settings.cost_saver_max_output_tokens)
+
         self.model = model
         self.system_prompt = system_prompt
         self.max_tokens = max_tokens
@@ -184,7 +192,7 @@ class BaseAgent(ABC):
         if self._client is None:
             self._initialize_client()
 
-        messages = list(self.conversation_history) if include_history else []
+        messages = self._history_for_request(include_history)
         user_msg = Message(role=MessageRole.USER, content=user_message)
         messages.append(user_msg)
 
@@ -229,6 +237,23 @@ class BaseAgent(ABC):
             Message(role=MessageRole.ASSISTANT, content=response.content)
         )
         return response
+
+    def _history_for_request(self, include_history: bool) -> List[Message]:
+        if not include_history:
+            return []
+
+        from config import get_settings
+        from .token_saver import compact_history
+
+        settings = get_settings()
+        if not settings.cost_saver_enabled:
+            return list(self.conversation_history)
+
+        return compact_history(
+            self.conversation_history,
+            keep=settings.cost_saver_history_messages,
+            max_chars=settings.cost_saver_history_char_limit,
+        )
 
     def _append_tool_messages(
         self,

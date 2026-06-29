@@ -5,9 +5,10 @@ from fastapi import APIRouter, HTTPException
 
 from agents.factory import AgentFactory, Provider, Role
 from config import OVERRIDES_FILE, clear_settings_cache, get_settings
-from config.settings import OVERRIDES_META_KEY, OVERRIDES_TOOLS_KEY
+from config.settings import OVERRIDES_COST_SAVING_KEY, OVERRIDES_META_KEY, OVERRIDES_TOOLS_KEY
 from config.team_profiles import TEAM_PRESETS
 from ..models.schemas import (
+    CostSavingConfig,
     ModelConfigRequest,
     ModelConfigResponse,
     RoleConfig,
@@ -80,6 +81,25 @@ def _tool_config_to_overrides(tools: ToolConfig) -> dict[str, bool]:
     }
 
 
+def _cost_saving_config_from_settings() -> CostSavingConfig:
+    settings = get_settings()
+    return CostSavingConfig(
+        enabled=settings.cost_saver_enabled,
+        max_output_tokens=settings.cost_saver_max_output_tokens,
+        history_messages=settings.cost_saver_history_messages,
+        history_char_limit=settings.cost_saver_history_char_limit,
+    )
+
+
+def _cost_saving_config_to_overrides(cost_saving: CostSavingConfig) -> dict[str, int | bool]:
+    return {
+        "cost_saver_enabled": cost_saving.enabled,
+        "cost_saver_max_output_tokens": max(1, cost_saving.max_output_tokens),
+        "cost_saver_history_messages": max(0, cost_saving.history_messages),
+        "cost_saver_history_char_limit": max(1, cost_saving.history_char_limit),
+    }
+
+
 def _active_preset_for(roles: dict[str, RoleConfig]) -> str | None:
     for preset_id, preset in TEAM_PRESETS.items():
         preset_roles = preset["roles"]
@@ -130,12 +150,14 @@ def _onboarding_warnings(roles: dict[str, RoleConfig], tools: ToolConfig) -> lis
 def _response() -> ModelConfigResponse:
     roles = _get_current_config()
     tools = _tool_config_from_settings()
+    cost_saving = _cost_saving_config_from_settings()
     return ModelConfigResponse(
         roles=roles,
         providers=[p.value for p in Provider],
         presets=_team_presets(),
         active_preset=_active_preset_for(roles),
         tools=tools,
+        cost_saving=cost_saving,
         warnings=_onboarding_warnings(roles, tools),
     )
 
@@ -165,6 +187,9 @@ async def update_model_config(req: ModelConfigRequest):
 
     if req.tools is not None:
         existing[OVERRIDES_TOOLS_KEY] = _tool_config_to_overrides(req.tools)
+
+    if req.cost_saving is not None:
+        existing[OVERRIDES_COST_SAVING_KEY] = _cost_saving_config_to_overrides(req.cost_saving)
 
     _write_override_file(existing)
     clear_settings_cache()
